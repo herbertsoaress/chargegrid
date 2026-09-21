@@ -1,0 +1,161 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+@layer base {
+  :root {
+    --background: 0 0% 7%;
+    --foreground: 0 0% 100%;
+
+    --card: 0 0% 12%;
+    --card-foreground: 0 0% 100%;
+
+    --popover: 0 0% 12%;
+    --popover-foreground: 0 0% 100%;
+
+    --primary: 352 100% 45%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 195 100% 47%;
+    --secondary-foreground: 0 0% 100%;
+
+    --muted: 0 0% 18%;
+    --muted-foreground: 0 0% 70%;
+
+    --accent: 12 100% 67%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 0 0% 20%;
+    --input: 0 0% 20%;
+    --ring: 352 100% 45%;
+
+    --radius: 0.75rem;
+
+    --sidebar-background: 0 0% 9%;
+    --sidebar-foreground: 0 0% 90%;
+    --sidebar-primary: 352 100% 45%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 0 0% 15%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 0 0% 18%;
+    --sidebar-ring: 352 100% 45%;
+
+    --glass-bg: 0 0% 100% / 0.06;
+    --glass-border: 0 0% 100% / 0.1;
+    --glow-primary: 352 100% 45% / 0.3;
+    --glow-secondary: 195 100% 47% / 0.2;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-family: 'Inter', sans-serif;
+  }
+}
+
+@layer utilities {
+  .glass-card {
+    @apply bg-card/80 backdrop-blur-xl border border-white/10 rounded-xl;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  }
+
+  .glass-card-glow {
+    @apply glass-card;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), 0 0 40px rgba(230, 0, 18, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  }
+
+  .glow-red {
+    box-shadow: 0 0 20px rgba(230, 0, 18, 0.3), 0 0 60px rgba(230, 0, 18, 0.1);
+  }
+
+  .glow-blue {
+    box-shadow: 0 0 20px rgba(0, 174, 239, 0.3), 0 0 60px rgba(0, 174, 239, 0.1);
+  }
+
+  .text-gradient-brand {
+    @apply bg-clip-text text-transparent;
+    background-image: linear-gradient(135deg, hsl(352, 100%, 45%), hsl(12, 100%, 67%));
+  }
+
+  .phone-frame {
+    @apply relative rounded-[2.5rem] border-4 border-white/10 overflow-hidden;
+    box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    width: 320px;
+    height: 640px;
+  }
+
+  .charging-pulse {
+    animation: pulse-charge 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse-charge {
+    0%, 100% { opacity: 0.4; transform: scale(1); }
+    50% { opacity: 1; transform: scale(1.05); }
+  }
+
+  .assistant-pulse {
+    animation: assistant-glow 2.6s ease-in-out infinite;
+  }
+  @keyframes assistant-glow {
+    0%, 100% { box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4), 0 0 0 0 hsl(var(--primary) / 0.45); }
+    50% { box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4), 0 0 0 10px hsl(var(--primary) / 0); }
+  }
+
+  .fade-in {
+    animation: fadeIn 0.5s ease-out;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .card-hover {
+    @apply transition-all duration-300 hover:border-white/20 hover:-translate-y-0.5;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  }
+  .card-hover:hover {
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(0, 174, 239, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  }
+
+  .status-dot {
+    @apply inline-block w-2 h-2 rounded-full;
+    box-shadow: 0 0 0 0 currentColor;
+    animation: status-pulse 2s ease-out infinite;
+  }
+  @keyframes status-pulse {
+    0% { box-shadow: 0 0 0 0 currentColor; }
+    70% { box-shadow: 0 0 0 6px transparent; }
+    100% { box-shadow: 0 0 0 0 transparent; }
+  }
+
+  .skeleton-shimmer {
+    background: linear-gradient(90deg, hsl(var(--muted)) 0%, hsl(0 0% 22%) 50%, hsl(var(--muted)) 100%);
+    background-size: 200% 100%;
+    animation: shimmer 1.6s ease-in-out infinite;
+  }
+  @keyframes shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+
+  .terminal-scroll::-webkit-scrollbar { width: 6px; }
+  .terminal-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+
+  .grid-bg {
+    background-image:
+      linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+    background-size: 32px 32px;
+  }
+}

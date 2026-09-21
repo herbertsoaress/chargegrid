@@ -1,11 +1,24 @@
+"""Tabelas do ChargeGrid.
+
+O SQL equivalente para o Supabase esta em
+`supabase/migrations/20260918000000_init_chargegrid.sql` -- se voce mudar um modelo
+aqui, mude la tambem (em producao o backend nao cria tabelas sozinho).
+Enums sao gravados como texto (native_enum=False) para casar com essa migration.
+"""
+
 import enum
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, Enum, Float, ForeignKey, Integer, JSON, String
+from sqlalchemy import JSON, Boolean, DateTime, Enum, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db import Base
 from app.services.session_fsm import derive_status, lock_released, power_released
+from app.timeutil import utcnow
+
+
+def _enum(cls: type[enum.Enum]) -> Enum:
+    return Enum(cls, native_enum=False, length=20, validate_strings=True)
 
 
 class Role(str, enum.Enum):
@@ -15,7 +28,6 @@ class Role(str, enum.Enum):
 
 class StationType(str, enum.Enum):
     comercial = "comercial"
-    residencial = "residencial"
 
 
 class ChargerStatus(str, enum.Enum):
@@ -28,6 +40,7 @@ class SessionMode(str, enum.Enum):
     rapido = "rapido"
     economico = "economico"
     sustentavel = "sustentavel"
+    garantido = "garantido"
 
 
 class PaymentMethod(str, enum.Enum):
@@ -48,8 +61,8 @@ class User(Base):
     name: Mapped[str] = mapped_column(String(120))
     email: Mapped[str] = mapped_column(String(180), unique=True, index=True)
     password_hash: Mapped[str] = mapped_column(String(255))
-    role: Mapped[Role] = mapped_column(Enum(Role), default=Role.driver)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    role: Mapped[Role] = mapped_column(_enum(Role), default=Role.driver)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
     vehicles: Mapped[list["Vehicle"]] = relationship(back_populates="owner")
     sessions: Mapped[list["ChargingSession"]] = relationship(back_populates="user")
@@ -59,7 +72,7 @@ class Vehicle(Base):
     __tablename__ = "vehicles"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
     plate: Mapped[str] = mapped_column(String(20))
     model: Mapped[str] = mapped_column(String(80))
 
@@ -71,10 +84,10 @@ class Station(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     name: Mapped[str] = mapped_column(String(120))
-    type: Mapped[StationType] = mapped_column(Enum(StationType))
+    type: Mapped[StationType] = mapped_column(_enum(StationType))
     address: Mapped[str] = mapped_column(String(200), default="")
-    power_limit_kw: Mapped[float] = mapped_column(Float, default=35.0)
-    # liga a estacao a uma das curvas de potencia documentadas no relatorio de calculo integral
+    power_limit_kw: Mapped[float] = mapped_column(Float, default=200.0)
+    # liga a estacao a uma das curvas de potencia do relatorio de calculo integral
     profile_key: Mapped[str] = mapped_column(String(40), default="chargegrid_intelligence")
 
     chargers: Mapped[list["Charger"]] = relationship(back_populates="station")
@@ -84,9 +97,11 @@ class Charger(Base):
     __tablename__ = "chargers"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    station_id: Mapped[int] = mapped_column(ForeignKey("stations.id"))
-    code: Mapped[str] = mapped_column(String(20))
-    status: Mapped[ChargerStatus] = mapped_column(Enum(ChargerStatus), default=ChargerStatus.livre)
+    station_id: Mapped[int] = mapped_column(ForeignKey("stations.id"), index=True)
+    code: Mapped[str] = mapped_column(String(20), unique=True)  # ex.: CG-001
+    name: Mapped[str] = mapped_column(String(80), default="")  # ex.: Centro #1
+    connector_type: Mapped[str] = mapped_column(String(20), default="Type 2 AC")
+    status: Mapped[ChargerStatus] = mapped_column(_enum(ChargerStatus), default=ChargerStatus.livre)
     max_power_kw: Mapped[float] = mapped_column(Float, default=22.0)
 
     station: Mapped["Station"] = relationship(back_populates="chargers")
@@ -96,10 +111,15 @@ class ChargingSession(Base):
     __tablename__ = "charging_sessions"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
     vehicle_id: Mapped[int | None] = mapped_column(ForeignKey("vehicles.id"), nullable=True)
-    charger_id: Mapped[int] = mapped_column(ForeignKey("chargers.id"))
-    mode: Mapped[SessionMode] = mapped_column(Enum(SessionMode), default=SessionMode.rapido)
+    charger_id: Mapped[int] = mapped_column(ForeignKey("chargers.id"), index=True)
+    mode: Mapped[SessionMode] = mapped_column(_enum(SessionMode), default=SessionMode.rapido)
+
+    # dados informados no app do motorista
+    vehicle_label: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    target_pct: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    departure_time: Mapped[str | None] = mapped_column(String(5), nullable=True)  # "HH:MM"
 
     # variaveis booleanas da maquina de estados (Sprint3_ChargeGrid_ComputerScience.docx)
     payment_confirmed: Mapped[bool] = mapped_column(Boolean, default=False)  # A
@@ -108,16 +128,39 @@ class ChargingSession(Base):
     maintenance_bypass: Mapped[bool] = mapped_column(Boolean, default=False)  # M
     payment_finalized: Mapped[bool] = mapped_column(Boolean, default=False)  # D
 
-    started_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    started_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    # momento em que a energia foi liberada pela primeira vez (S=1); base do calculo de kWh
+    charging_started_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     ended_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    # telemetria (vem do controlador simulado ou, no futuro, do carregador real via MeterValues)
     energy_kwh: Mapped[float] = mapped_column(Float, default=0.0)
+    current_power_kw: Mapped[float] = mapped_column(Float, default=0.0)
+    current_pct: Mapped[float] = mapped_column(Float, default=0.0)
+    last_meter_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
     price_per_kwh_snapshot: Mapped[float] = mapped_column(Float, default=0.0)
+    # de onde veio o preco: "modelo" | "modelo_tempo_real" | "reserva" | "curva" (sessoes antigas)
+    price_source: Mapped[str] = mapped_column(String(24), default="curva")
+    price_occupancy: Mapped[float | None] = mapped_column(Float, nullable=True)  # ocupacao usada no preco (0 a 1)
     amount_due: Mapped[float] = mapped_column(Float, default=0.0)
 
     user: Mapped["User"] = relationship(back_populates="sessions")
     charger: Mapped["Charger"] = relationship()
-    events: Mapped[list["SessionEvent"]] = relationship(back_populates="session", order_by="SessionEvent.created_at")
+    events: Mapped[list["SessionEvent"]] = relationship(back_populates="session", order_by="SessionEvent.id")
     payments: Mapped[list["Payment"]] = relationship(back_populates="session")
+
+    @property
+    def charger_code(self) -> str:
+        return self.charger.code
+
+    @property
+    def charger_name(self) -> str:
+        return self.charger.name
+
+    @property
+    def station_name(self) -> str:
+        return self.charger.station.name
 
     @property
     def power_released(self) -> bool:
@@ -148,10 +191,10 @@ class SessionEvent(Base):
     __tablename__ = "session_events"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    session_id: Mapped[int] = mapped_column(ForeignKey("charging_sessions.id"))
+    session_id: Mapped[int] = mapped_column(ForeignKey("charging_sessions.id"), index=True)
     type: Mapped[str] = mapped_column(String(60))
     payload_json: Mapped[dict] = mapped_column(JSON, default=dict)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
     session: Mapped["ChargingSession"] = relationship(back_populates="events")
 
@@ -160,12 +203,12 @@ class Payment(Base):
     __tablename__ = "payments"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    session_id: Mapped[int] = mapped_column(ForeignKey("charging_sessions.id"))
-    method: Mapped[PaymentMethod] = mapped_column(Enum(PaymentMethod))
-    status: Mapped[PaymentStatus] = mapped_column(Enum(PaymentStatus), default=PaymentStatus.pendente)
+    session_id: Mapped[int] = mapped_column(ForeignKey("charging_sessions.id"), index=True)
+    method: Mapped[PaymentMethod] = mapped_column(_enum(PaymentMethod))
+    status: Mapped[PaymentStatus] = mapped_column(_enum(PaymentStatus), default=PaymentStatus.pendente)
     amount: Mapped[float] = mapped_column(Float)
     provider_ref: Mapped[str] = mapped_column(String(60), default="")
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
     session: Mapped["ChargingSession"] = relationship(back_populates="payments")
 
@@ -174,9 +217,57 @@ class GoodWeReading(Base):
     __tablename__ = "goodwe_readings"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    station_id: Mapped[int] = mapped_column(ForeignKey("stations.id"))
+    station_id: Mapped[int] = mapped_column(ForeignKey("stations.id"), index=True)
     origem: Mapped[str] = mapped_column(String(20), default="simulado")  # "simulado" | "real"
-    timestamp: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    timestamp: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     power_kw: Mapped[float] = mapped_column(Float)
     soc_percent: Mapped[float | None] = mapped_column(Float, nullable=True)
     raw_json: Mapped[dict] = mapped_column(JSON, default=dict)
+
+
+class IntegrationLog(Base):
+    """Trilha de auditoria das integracoes (GoodWe, balanceador de carga...).
+
+    Cumpre o entregavel "logs e tratamento de erros" da Etapa 3 da proposta.
+    """
+
+    __tablename__ = "integration_logs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    source: Mapped[str] = mapped_column(String(40))  # "goodwe" | "load-balancer" | ...
+    level: Mapped[str] = mapped_column(String(10))  # INFO | WARN | ERR
+    message: Mapped[str] = mapped_column(Text)
+    payload_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
+class ForecastModel(Base):
+    """Versoes do modelo de previsao de demanda (parametros + metricas), uma linha por treino."""
+
+    __tablename__ = "forecast_models"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    version: Mapped[int] = mapped_column(Integer)
+    source: Mapped[str] = mapped_column(String(20))  # "csv" | "padrao"
+    trained_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    rows: Mapped[int] = mapped_column(Integer, default=0)  # registros de historico usados no treino
+    params_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    metrics_json: Mapped[dict] = mapped_column(JSON, default=dict)
+
+
+class OcppMessage(Base):
+    """Cada mensagem OCPP trocada com um carregador (quadro bruto: [tipo, id, acao, payload]).
+
+    Alimenta a tela "Logs OCPP" com mensagens REAIS (direction: "in" = carregador -> CSMS, "out" = CSMS -> carregador).
+    """
+
+    __tablename__ = "ocpp_messages"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    charge_point_id: Mapped[str] = mapped_column(String(20), index=True)  # codigo do carregador, ex.: CG-001
+    direction: Mapped[str] = mapped_column(String(3))  # "in" | "out"
+    message_type: Mapped[int] = mapped_column(Integer)  # 2 = CALL, 3 = CALLRESULT, 4 = CALLERROR
+    action: Mapped[str] = mapped_column(String(40), default="")  # BootNotification, MeterValues...
+    unique_id: Mapped[str] = mapped_column(String(40), default="")
+    payload_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, index=True)

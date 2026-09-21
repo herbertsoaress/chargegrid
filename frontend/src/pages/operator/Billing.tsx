@@ -45,10 +45,10 @@ export function Billing() {
               <CartesianGrid strokeDasharray="3 3" stroke="#ffffff1a" />
               <XAxis dataKey="hour" stroke="#ffffff66" fontSize={11} unit="h" />
               <YAxis stroke="#ffffff66" fontSize={11} unit=" R$" />
-              <Tooltip contentStyle={{ background: "#0f2440", border: "none" }} />
+              <Tooltip contentStyle={{ background: "#0d0d10", border: "none" }} />
               <Legend />
-              <Line type="monotone" dataKey="comercial" name="ChargeGrid Intelligence" stroke="#c0155e" dot={false} strokeWidth={2} />
-              <Line type="monotone" dataKey="residencial" name="EV ChargeOps" stroke="#2e9e83" dot={false} strokeWidth={2} />
+              <Line type="monotone" dataKey="comercial" name="ChargeGrid Intelligence" stroke="#ef4444" dot={false} strokeWidth={2} />
+              <Line type="monotone" dataKey="residencial" name="EV ChargeOps" stroke="#38bdf8" dot={false} strokeWidth={2} />
             </LineChart>
           </ResponsiveContainer>
         </CardContent>

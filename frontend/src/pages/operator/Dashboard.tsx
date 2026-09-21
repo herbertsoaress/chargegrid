@@ -122,8 +122,8 @@ export function Dashboard() {
                 <CartesianGrid strokeDasharray="3 3" stroke="#ffffff1a" />
                 <XAxis dataKey="time" stroke="#ffffff66" fontSize={11} />
                 <YAxis stroke="#ffffff66" fontSize={11} unit="kW" />
-                <Tooltip contentStyle={{ background: "#0f2440", border: "none" }} />
-                <Area type="monotone" dataKey="power_kw" stroke="#c0155e" fill="#c0155e33" />
+                <Tooltip contentStyle={{ background: "#0d0d10", border: "none" }} />
+                <Area type="monotone" dataKey="power_kw" stroke="#38bdf8" fill="#38bdf833" />
               </AreaChart>
             </ResponsiveContainer>
           </CardContent>
@@ -140,8 +140,8 @@ export function Dashboard() {
                 <CartesianGrid strokeDasharray="3 3" stroke="#ffffff1a" />
                 <XAxis dataKey="hour" stroke="#ffffff66" fontSize={11} unit="h" />
                 <YAxis stroke="#ffffff66" fontSize={11} unit="kW" />
-                <Tooltip contentStyle={{ background: "#0f2440", border: "none" }} />
-                <Line type="monotone" dataKey="power_kw" stroke="#2e9e83" strokeWidth={2} dot={false} />
+                <Tooltip contentStyle={{ background: "#0d0d10", border: "none" }} />
+                <Line type="monotone" dataKey="power_kw" stroke="#38bdf8" strokeWidth={2} dot={false} />
               </LineChart>
             </ResponsiveContainer>
           </CardContent>
@@ -158,8 +158,8 @@ export function Dashboard() {
                 <CartesianGrid strokeDasharray="3 3" stroke="#ffffff1a" />
                 <XAxis dataKey="dia" stroke="#ffffff66" fontSize={11} />
                 <YAxis stroke="#ffffff66" fontSize={11} />
-                <Tooltip contentStyle={{ background: "#0f2440", border: "none" }} />
-                <Bar dataKey="receita" fill="#c0155e" radius={[4, 4, 0, 0]} />
+                <Tooltip contentStyle={{ background: "#0d0d10", border: "none" }} />
+                <Bar dataKey="receita" fill="#ef4444" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>

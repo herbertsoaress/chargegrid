@@ -56,11 +56,11 @@ export function EngineeringForecast() {
               <CartesianGrid strokeDasharray="3 3" stroke="#ffffff1a" />
               <XAxis dataKey="x" stroke="#ffffff66" fontSize={11} unit="h" />
               <YAxis stroke="#ffffff66" fontSize={11} unit=" kWh" />
-              <Tooltip contentStyle={{ background: "#0f2440", border: "none" }} />
+              <Tooltip contentStyle={{ background: "#0d0d10", border: "none" }} />
               <Legend />
-              <Line type="monotone" dataKey="referencia" name="Referencia (relatorio)" stroke="#2e9e83" dot={false} strokeDasharray="4 4" />
-              {fitted && <Line type="monotone" dataKey="ajuste_atual" name="Ajuste com dados reais" stroke="#c0155e" dot={false} />}
-              <Scatter data={realPoints} dataKey="y" name="Sessoes reais" fill="#f4b400" />
+              <Line type="monotone" dataKey="referencia" name="Referencia (relatorio)" stroke="#38bdf8" dot={false} strokeDasharray="4 4" />
+              {fitted && <Line type="monotone" dataKey="ajuste_atual" name="Ajuste com dados reais" stroke="#ef4444" dot={false} />}
+              <Scatter data={realPoints} dataKey="y" name="Sessoes reais" fill="#f59e0b" />
             </ComposedChart>
           </ResponsiveContainer>
         </CardContent>

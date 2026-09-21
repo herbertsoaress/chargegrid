@@ -63,8 +63,8 @@ export function AIAssistant() {
             <div
               key={i}
               className={cn(
-                "max-w-[85%] rounded-lg px-3 py-2 text-sm",
-                m.role === "user" ? "ml-auto bg-brand-red text-white" : "bg-white/10 text-white/90",
+                "max-w-[85%] animate-fade-in-up rounded-lg px-3 py-2 text-sm",
+                m.role === "user" ? "ml-auto bg-brand-red text-white shadow-md shadow-brand-red/20" : "bg-white/10 text-white/90 ring-1 ring-inset ring-white/10",
               )}
             >
               {m.text}
@@ -82,7 +82,7 @@ export function AIAssistant() {
         }}
       >
         <input
-          className="flex-1 rounded-lg border border-white/10 bg-navy-800 px-3 py-2 text-sm text-white outline-none focus:border-brand-red"
+          className="flex-1 rounded-lg border border-white/10 bg-navy-800 px-3 py-2 text-sm text-white outline-none transition-colors duration-200 focus:border-brand-red focus:ring-2 focus:ring-brand-red/20"
           placeholder="Pergunte algo sobre a operacao..."
           value={input}
           onChange={(e) => setInput(e.target.value)}

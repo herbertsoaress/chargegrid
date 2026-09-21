@@ -1,9 +1,13 @@
+import { Zap } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/lib/AuthContext";
+
+const inputClass =
+  "w-full rounded-lg border border-white/10 bg-navy-800 px-3 py-2 text-sm outline-none transition-colors duration-200 focus:border-brand-red focus:ring-2 focus:ring-brand-red/20";
 
 export function Login() {
   const { login } = useAuth();
@@ -28,9 +32,12 @@ export function Login() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-navy-950 px-4 text-white">
-      <Card className="w-full max-w-sm">
+    <div className="app-shell-bg flex min-h-screen items-center justify-center bg-navy-950 px-4 text-white">
+      <Card className="w-full max-w-sm animate-fade-in-up hover:translate-y-0">
         <CardHeader className="flex-col items-start gap-1">
+          <span className="mb-1 flex h-9 w-9 items-center justify-center rounded-lg bg-brand-red/15 text-brand-red ring-1 ring-inset ring-brand-red/30">
+            <Zap className="h-4.5 w-4.5" fill="currentColor" />
+          </span>
           <CardTitle className="text-xl text-white">
             Charge<span className="text-brand-red">Grid</span>
           </CardTitle>
@@ -42,7 +49,7 @@ export function Login() {
               type="email"
               required
               placeholder="E-mail"
-              className="w-full rounded-lg border border-white/10 bg-navy-800 px-3 py-2 text-sm outline-none focus:border-brand-red"
+              className={inputClass}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
             />
@@ -50,7 +57,7 @@ export function Login() {
               type="password"
               required
               placeholder="Senha"
-              className="w-full rounded-lg border border-white/10 bg-navy-800 px-3 py-2 text-sm outline-none focus:border-brand-red"
+              className={inputClass}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />

@@ -45,7 +45,7 @@ export function EngineeringSimulator() {
               Geracao
               <input
                 type="number"
-                className="mt-1 w-full rounded-lg border border-white/10 bg-navy-800 px-3 py-2 text-white outline-none focus:border-brand-red"
+                className="mt-1 w-full rounded-lg border border-white/10 bg-navy-800 px-3 py-2 text-white outline-none transition-colors duration-200 focus:border-brand-red focus:ring-2 focus:ring-brand-red/20"
                 value={generation}
                 onChange={(e) => setGeneration(Number(e.target.value))}
               />
@@ -54,7 +54,7 @@ export function EngineeringSimulator() {
               Consumo
               <input
                 type="number"
-                className="mt-1 w-full rounded-lg border border-white/10 bg-navy-800 px-3 py-2 text-white outline-none focus:border-brand-red"
+                className="mt-1 w-full rounded-lg border border-white/10 bg-navy-800 px-3 py-2 text-white outline-none transition-colors duration-200 focus:border-brand-red focus:ring-2 focus:ring-brand-red/20"
                 value={consumption}
                 onChange={(e) => setConsumption(Number(e.target.value))}
               />
@@ -63,7 +63,7 @@ export function EngineeringSimulator() {
               Potencia minima de recarga (POTENCIA_MINIMA_RECARGA)
               <input
                 type="number"
-                className="mt-1 w-full rounded-lg border border-white/10 bg-navy-800 px-3 py-2 text-white outline-none focus:border-brand-red"
+                className="mt-1 w-full rounded-lg border border-white/10 bg-navy-800 px-3 py-2 text-white outline-none transition-colors duration-200 focus:border-brand-red focus:ring-2 focus:ring-brand-red/20"
                 value={minimum}
                 onChange={(e) => setMinimum(Number(e.target.value))}
               />
@@ -95,8 +95,8 @@ export function EngineeringSimulator() {
               <span
                 className="h-6 w-6 rounded-full"
                 style={{
-                  backgroundColor: result.color === "success" ? "#2e9e83" : result.color === "warning" ? "#f4b400" : "#c0155e",
-                  boxShadow: `0 0 16px ${result.color === "success" ? "#2e9e83" : result.color === "warning" ? "#f4b400" : "#c0155e"}`,
+                  backgroundColor: result.color === "success" ? "#22c55e" : result.color === "warning" ? "#f59e0b" : "#ef4444",
+                  boxShadow: `0 0 16px ${result.color === "success" ? "#22c55e" : result.color === "warning" ? "#f59e0b" : "#ef4444"}`,
                 }}
               />
               <Badge variant={result.color} className="text-sm">

@@ -51,14 +51,14 @@ export function Balancing() {
               </Badge>
             </CardHeader>
             <CardContent className="space-y-4">
-              <Bar label="Solar" value={snapshot.supplied_by_solar_kw} max={snapshot.total_demand_kw || 1} color="#f4b400" />
+              <Bar label="Solar" value={snapshot.supplied_by_solar_kw} max={snapshot.total_demand_kw || 1} color="#f59e0b" />
               <Bar
                 label={`Rede eletrica (limite ${snapshot.grid_import_limit_kw} kW)`}
                 value={snapshot.supplied_by_grid_kw}
                 max={snapshot.grid_import_limit_kw}
-                color="#c0155e"
+                color="#ef4444"
               />
-              <Bar label="Bateria ESS" value={snapshot.supplied_by_battery_kw} max={snapshot.total_demand_kw || 1} color="#2e9e83" />
+              <Bar label="Bateria ESS" value={snapshot.supplied_by_battery_kw} max={snapshot.total_demand_kw || 1} color="#22c55e" />
             </CardContent>
           </Card>
 

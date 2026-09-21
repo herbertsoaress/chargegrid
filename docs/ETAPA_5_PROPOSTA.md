@@ -1,0 +1,48 @@
+# ChargeGrid | Etapa 5 da proposta: IA no preço e protocolos abertos
+
+Complemento à **Proposta de Evolução Técnica** (13/09/2026). Documento para alinhamento com o Scrum Master.
+Equipe ChargeGrid · EV Challenge FIAP 2026 | GoodWe Brasil · trilha ChargeGrid Intelligence
+
+## Por que uma Etapa 5
+
+O playbook oficial do desafio, lido depois da proposta, pede para a trilha ChargeGrid Intelligence:
+- **IA como motor lógico da solução** (previsão de demanda e tarifação dinâmica), e não como recurso de interface;
+- **protocolos abertos** (OCPP e MODBUS) como base de integração com o equipamento.
+
+Nenhum dos dois estava no roadmap original (Etapas 0 a 4). Registrar como etapa nova deixa claro que o escopo cresceu para atender ao playbook, sem alterar o que já foi combinado.
+
+## Objetivo
+
+Trocar o preço fixo por horário por um preço calculado por um modelo de previsão de demanda, e trocar o "controlador simulado" por um carregador virtual que fala OCPP 1.6J de verdade, lido por um medidor MODBUS, de modo que o equipamento físico possa ser conectado depois sem mudar o sistema.
+
+## Entregáveis
+
+| # | Entregável | Critério de conclusão |
+|---|---|---|
+| 5.1 | Modelo de previsão calibrado com o histórico do grupo (CSV da Sprint 04) e preço dinâmico entre R$ 1,10 e R$ 2,00 | Preço travado na sessão com origem e ocupação; tela de IA com previsão do dia; métricas honestas documentadas |
+| 5.2 | Servidor OCPP 1.6J (CSMS) validado pelo esquema oficial, com log de todas as mensagens | Uma sessão completa (Authorize, StartTransaction, MeterValues, StopTransaction) visível na tela Logs OCPP |
+| 5.3 | Carregadores virtuais que falam OCPP | Recarga conduzida pelo carregador, com energia medida por ele |
+| 5.4 | Medidor MODBUS TCP simulado e leitor | Balanceamento usando a leitura do medidor; selo "Simulado" |
+| 5.5 | Camada de pagamentos com provedor trocável | Provedor sandbox atual e recusa/pendência tratadas; troca por provedor real sem mexer no resto |
+| 5.6 | Login real (motorista e operador) | Console e app exigem autenticação; contas de operador definidas pelo administrador |
+| 5.7 | Documentação: fluxo de dados, modelo, matriz de aderência, roteiro | Pasta `docs/` do repositório |
+
+## Estado
+
+Os itens 5.1 a 5.7 estão **implementados e testados** (testes automáticos do backend e do frontend, e uma recarga completa verificada de ponta a ponta contra o Supabase). Falta publicar (Vercel e Render).
+
+## Riscos e controles
+
+| Risco | Controle |
+|---|---|
+| Parecer que há equipamento físico | Tudo que é virtual aparece como "simulado" na interface e na API; o protocolo é real, o equipamento não |
+| IA apresentada como mais do que é | Documentado como modelo estatístico calibrado com dados de **um veículo**; erro diário e limites descritos em `docs/MODELO_PREVISAO.md` |
+| Suposições de cenário parecerem dados reais | 200 kW contratados, 120 kW de prédio e ocupação de 0,80 são declarados como suposição e ajustáveis por variável de ambiente |
+| Mapa de registradores MODBUS e ficha do carregador desconhecidos | Marcados como "assumidos" até haver o manual do equipamento da FIAP |
+| Dependência de credenciais da GoodWe | Segue como na proposta: adaptador simulado com a mesma interface; troca quando o acesso for liberado |
+
+## Decisão solicitada ao Scrum Master
+
+1. Aprovar a Etapa 5 como parte do escopo da próxima banca.
+2. Confirmar que **carregador e medidor virtuais**, declarados como simulados, atendem ao pilar "protocolos abertos" enquanto não houver equipamento físico.
+3. Indicar o responsável pelo contato com FIAP/GoodWe para as validações da Etapa 0 (credenciais, ficha técnica do carregador, mapa de registradores do medidor).

@@ -14,14 +14,15 @@ def list_users_and_fleets(db: DbSession = Depends(get_db), _operator: object = D
     drivers = db.query(User).options(joinedload(User.vehicles)).filter(User.role == Role.driver).all()
     result = []
     for driver in drivers:
-        session_count = db.query(ChargingSession).filter(ChargingSession.user_id == driver.id).count()
+        sessions = db.query(ChargingSession).filter(ChargingSession.user_id == driver.id).all()
         result.append(
             UserFleetOut(
                 id=driver.id,
                 name=driver.name,
                 email=driver.email,
                 vehicles=[VehicleOut(id=v.id, plate=v.plate, model=v.model) for v in driver.vehicles],
-                total_sessions=session_count,
+                total_sessions=len(sessions),
+                total_spent=round(sum(s.amount_due for s in sessions if s.ended_at), 2),
             )
         )
     return result

@@ -1,0 +1,59 @@
+# Render "Blueprint": cria o servico da API a partir deste arquivo.
+# Passo a passo no GUIA_DO_PROJETO.md (secao "Publicar").
+#
+# ATENCAO: variaveis com "sync: false" NAO vem daqui. Voce cola o valor no painel do Render
+# (o Render pede quando voce cria o Blueprint). Segredos nunca entram neste arquivo.
+services:
+  - type: web
+    name: chargegrid-api
+    runtime: docker
+    rootDir: backend
+    dockerfilePath: ./Dockerfile
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: APP_ENV
+        value: production
+      # Porta fixa: o carregador virtual (OCPP) conecta no proprio backend por esta porta.
+      - key: PORT
+        value: "10000"
+
+      # ---- Segredos e enderecos (colar no painel do Render) ----
+      # Connection string do Supabase (Session pooler, IPv4).
+      - key: DATABASE_URL
+        sync: false
+      # O Render gera uma chave aleatoria sozinho.
+      - key: SECRET_KEY
+        generateValue: true
+      # URL do frontend na Vercel, ex.: https://chargegrid.vercel.app (sem barra no final).
+      - key: FRONTEND_ORIGINS
+        sync: false
+      # Seu e-mail (e o de quem for operador). Quem se cadastrar com ele vira operador.
+      - key: OPERATOR_EMAILS
+        sync: false
+      # Chave do Gemini (Google AI Studio). Vazio = assistente por regras.
+      - key: GEMINI_API_KEY
+        sync: false
+
+      # ---- Modo demonstracao (banca). Depois da apresentacao troque para "false". ----
+      - key: SEED_DEMO_DATA
+        value: "true"
+      - key: ALLOW_DEMO_LOGIN
+        value: "true"
+
+      # ---- Pagamento ----
+      - key: PAYMENT_PROVIDER
+        value: sandbox
+
+      # ---- Protocolos abertos ----
+      - key: OCPP_ENABLED
+        value: "true"
+      # "true" = os 8 carregadores VIRTUAIS ligam junto com a API (necessario para a demonstracao,
+      # ja que nao ha carregador fisico). Com carregador real, troque para "false" e defina OCPP_SHARED_TOKEN.
+      - key: OCPP_SIMULATOR
+        value: "true"
+      - key: OCPP_SIMULATOR_URL
+        value: ws://127.0.0.1:10000
+      # "true" = medidor MODBUS virtual dentro do backend (lido por 127.0.0.1:5020).
+      - key: MODBUS_SIMULATOR
+        value: "true"
