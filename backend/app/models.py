@@ -145,6 +145,17 @@ class ChargingSession(Base):
     price_occupancy: Mapped[float | None] = mapped_column(Float, nullable=True)  # ocupacao usada no preco (0 a 1)
     amount_due: Mapped[float] = mapped_column(Float, default=0.0)
 
+    # Tarifas de tempo/potencia/ociosidade TRAVADAS na abertura (services/pricing.py + config.py).
+    # Sessoes antigas (de antes desta extensao) ficam com 0.0 nestes campos: o preco delas continua
+    # sendo so energia x price_per_kwh_snapshot (sem tempo/ociosidade), que e o que ja foi cobrado.
+    mode_surcharge_snapshot: Mapped[float] = mapped_column(Float, default=0.0)  # R$/kWh, por modo
+    time_rate_snapshot: Mapped[float] = mapped_column(Float, default=0.0)  # R$/minuto de recarga
+    idle_rate_snapshot: Mapped[float] = mapped_column(Float, default=0.0)  # R$/minuto de ociosidade
+    idle_grace_minutes_snapshot: Mapped[float] = mapped_column(Float, default=0.0)
+    price_cap_per_kwh_snapshot: Mapped[float] = mapped_column(Float, default=0.0)  # 0 = sem teto (sessoes antigas)
+    # instante em que a bateria chegou a 100% pela primeira vez (telemetria); usado para contar ociosidade
+    full_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
     user: Mapped["User"] = relationship(back_populates="sessions")
     charger: Mapped["Charger"] = relationship()
     events: Mapped[list["SessionEvent"]] = relationship(back_populates="session", order_by="SessionEvent.id")
@@ -185,6 +196,42 @@ class ChargingSession(Base):
             self.maintenance_bypass,
             self.payment_finalized,
         )
+
+    @property
+    def price_breakdown(self):
+        # import tardio: pricing -> forecast -> models seria um ciclo se importado no topo do arquivo
+        from app.services import pricing
+
+        return pricing.breakdown(self)
+
+    @property
+    def amount_estimate(self) -> float:
+        """Valor total ATE AGORA (energia + tempo + ociosidade, com o teto por kWh aplicado)."""
+        return self.price_breakdown.total
+
+    @property
+    def energy_amount(self) -> float:
+        return self.price_breakdown.energy_amount
+
+    @property
+    def time_amount(self) -> float:
+        return self.price_breakdown.time_amount
+
+    @property
+    def idle_amount(self) -> float:
+        return self.price_breakdown.idle_amount
+
+    @property
+    def minutes_charging(self) -> float:
+        return self.price_breakdown.minutes_charging
+
+    @property
+    def minutes_idle(self) -> float:
+        return self.price_breakdown.minutes_idle
+
+    @property
+    def price_capped(self) -> bool:
+        return self.price_breakdown.capped
 
 
 class SessionEvent(Base):

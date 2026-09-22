@@ -126,6 +126,12 @@ describe("LiveDataProvider com backend (FastAPI + Supabase)", () => {
     if (path === "/ops/peak-shaving") return { logged: true, log_id: 5 };
     if (path === "/billing/summary")
       return { daily_energy_kwh: 41.27, daily_revenue: 55.5, active_sessions: 1, available_chargers: 6, network_capacity_kw: 200, network_used_kw: 12 };
+    if (path === "/users/me/loyalty")
+      return {
+        points: 340, tier: "Bronze", next_tier: "Prata", points_to_next_tier: 160,
+        week_sessions: 2, week_goal: 3, week_goal_met: false, weeks_goal_met: 0,
+        points_per_kwh: 10, weekly_goal_bonus: 50,
+      };
     return apiSession(); // confirm-payment / rfid / cable / meter-values / stop
   };
 
@@ -197,6 +203,17 @@ describe("LiveDataProvider com backend (FastAPI + Supabase)", () => {
     expect(live.backend.driver).toMatchObject({ name: "Maria Souza", email: "driver@chargegrid.demo" });
     await waitFor(() => expect(live.vehicles).toEqual([{ id: 5, plate: "ABC1D23", model: "BYD Dolphin" }]));
     expect(calls).toContain("GET /sessions?status=completed&limit=50");
+    await waitFor(() => expect(live.loyalty).toMatchObject({ points: 340, tier: "Bronze", week_sessions: 2 }));
+  });
+
+  it("sair apaga a pontuacao (assim como veiculos e historico)", async () => {
+    await mountOnline();
+    await act(async () => {
+      await live.login("driver", "driver@chargegrid.demo", "certa123");
+    });
+    await waitFor(() => expect(live.loyalty).not.toBeNull());
+    act(() => live.logout("driver"));
+    expect(live.loyalty).toBeNull();
   });
 
   it("energia e faturamento de hoje vem do banco quando ha operador logado (e sao 'simulado' antes)", async () => {

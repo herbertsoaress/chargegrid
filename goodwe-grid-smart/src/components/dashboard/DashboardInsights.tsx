@@ -10,12 +10,16 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { tariffsCsvUrl } from "@/lib/backend/client";
 import {
-  CONTRACTED_KW, WEEKDAY_NAMES, hourlyForecast, type Band, type ForecastPointView,
+  CONTRACTED_KW, IDLE_GRACE_MIN, IDLE_RATE_PER_MIN, MODE_POWER_FACTOR, MODE_SURCHARGE_PER_KWH,
+  PRICE_CAP_PER_KWH, TIME_RATE_PER_MIN, WEEKDAY_NAMES, hourlyForecast, type Band, type ForecastPointView,
 } from "@/lib/pricing";
 import { useLiveData } from "./LiveDataProvider";
 
 const BAND_LABEL: Record<Band, string> = { "fora de ponta": "Fora de ponta", intermediaria: "Intermediária", ponta: "Ponta" };
 const BAND_COLOR: Record<Band, string> = { "fora de ponta": "#22c55e", intermediaria: "#FF7759", ponta: "#E60012" };
+const MODE_LABEL: Record<keyof typeof MODE_SURCHARGE_PER_KWH, string> = {
+  eco: "Econômico", sustentavel: "Sustentável", garantido: "Garantido", rapido: "Rápido",
+};
 const TOOLTIP_STYLE = { background: "#1F1F1F", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, fontSize: 12 };
 
 const hh = (h: number) => `${String(h).padStart(2, "0")}h`;
@@ -227,6 +231,23 @@ export function DashboardInsights() {
           <p className="text-[10px] text-muted-foreground">Preço médio previsto hoje</p>
           <p className="text-2xl font-bold text-goodwe-green tabular-nums">{brl(summary.avgPrice)}</p>
           <p className="text-[10px] text-muted-foreground mt-1">Faixa de {brl(summary.minPrice)} a {brl(summary.maxPrice)}</p>
+        </div>
+      </div>
+
+      <div className="glass-card p-4">
+        <h3 className="text-sm font-semibold text-foreground mb-1">Tarifa por modo de recarga</h3>
+        <p className="text-xs text-muted-foreground mb-3">
+          Além do preço do kWh acima, cada modo soma um acréscimo (potência maior = mais caro) e a sessão cobra R$ {TIME_RATE_PER_MIN.toFixed(2)}/min de uso.
+          Ociosidade (bateria cheia): R$ {IDLE_RATE_PER_MIN.toFixed(2)}/min após {IDLE_GRACE_MIN} min de tolerância. Teto: R$ {PRICE_CAP_PER_KWH.toFixed(2)}/kWh entregue.
+        </p>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+          {(Object.keys(MODE_SURCHARGE_PER_KWH) as (keyof typeof MODE_SURCHARGE_PER_KWH)[]).map((mode) => (
+            <div key={mode} className="glass-card p-3">
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{MODE_LABEL[mode]}</p>
+              <p className="text-sm font-bold text-foreground tabular-nums">{brl(now.price + MODE_SURCHARGE_PER_KWH[mode])}/kWh</p>
+              <p className="text-[10px] text-muted-foreground">{Math.round(MODE_POWER_FACTOR[mode] * 100)}% da potência do carregador</p>
+            </div>
+          ))}
         </div>
       </div>
 

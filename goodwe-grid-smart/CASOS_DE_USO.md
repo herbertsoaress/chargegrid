@@ -299,9 +299,10 @@ O cenário é **um único local comercial** (FIAP Paulista, 8 carregadores).
      esses números.
   4. O motorista finaliza: o pagamento é concluído, o carregador envia `StopTransaction` e o comprovante é gerado.
   5. O operador vê cada mensagem em **Logs OCPP** (UC-04) e a sessão no Faturamento.
-  6. No encerramento o backend confere o valor com a **energia final** (uma leitura do medidor pode chegar
-     junto com o pagamento). Se mudou, grava o evento `amount_adjusted`; no sandbox o pagamento acompanha o
-     valor final, e com provedor real a diferença fica só registrada (`to_reconcile`).
+  6. No encerramento o backend confere o valor com a **energia e o tempo finais** (uma leitura do medidor
+     pode chegar junto com o pagamento, ou o carro pode ficar parado depois de encher). Se mudou, grava o
+     evento `amount_adjusted`; no sandbox o pagamento acompanha o valor final, e com provedor real a
+     diferença fica só registrada (`to_reconcile`).
 - **Fluxo alternativo:** Pagamento recusado devolve erro 402 e a sessão não avança; carregador com falha
   (`StatusNotification` Faulted) passa a "manutenção".
 - **Resultado esperado:** Uma sessão completa, rastreável do app ao banco, com o equipamento virtual falando
@@ -327,3 +328,32 @@ O cenário é **um único local comercial** (FIAP Paulista, 8 carregadores).
 - **Fluxo alternativo:** Placa inválida é rejeitada; veículo que já foi usado em uma sessão não pode ser
   removido (409), para preservar o histórico.
 - **Resultado esperado:** As sessões saem vinculadas ao veículo escolhido.
+
+### UC-21 — Ver o detalhamento do valor (tempo, potência e ociosidade)
+- **Ator:** Motorista e Operador
+- **Pré-condição:** Backend no ar (extensão aprovada, fora do playbook — ver `docs/TARIFA_TEMPO_E_OCIOSIDADE.md`)
+- **Fluxo principal:**
+  1. Na configuração da recarga (UC-12), a estimativa mostra energia, tempo e o custo total, e diz o
+     preço do kWh **com o acréscimo do modo** escolhido (Rápido custa mais por kWh que o Econômico).
+  2. Durante a recarga por OCPP (UC-18), o custo ao vivo soma energia e tempo de uso.
+  3. Se a bateria chega a 100% e o carro continua no carregador além de uma tolerância inicial, a tela
+     mostra um aviso de ociosidade e o custo passa a somar essa taxa também.
+  4. No comprovante e no Faturamento, o valor aparece aberto em energia, tempo de uso e ociosidade.
+  5. Em **IA & Previsão**, um cartão mostra o preço do kWh de cada modo.
+- **Fluxo alternativo:** Sessões antigas (de antes desta extensão) continuam mostrando só o valor da
+  energia, sem tempo nem ociosidade — não são recalculadas.
+- **Resultado esperado:** O cliente entende por que dois modos com a mesma energia podem custar
+  valores diferentes, e é desestimulado a deixar o carro parado no carregador depois de carregado.
+
+### UC-22 — Acompanhar a pontuação de fidelidade
+- **Ator:** Motorista
+- **Pré-condição:** Motorista logado (extensão aprovada, só visual — ver `docs/PONTUACAO_FIDELIDADE.md`)
+- **Fluxo principal:**
+  1. Em Perfil, um cartão mostra o total de pontos (10 por kWh carregado), a faixa atual
+     (Bronze/Prata/Ouro) e quantos pontos faltam para a próxima.
+  2. Uma barra mostra o progresso da meta da semana (3 recargas); ao bater a meta, ganha um bônus de 50
+     pontos.
+  3. O assistente responde perguntas como "quantos pontos eu tenho?".
+- **Fluxo alternativo:** Motorista novo, sem sessões encerradas: 0 pontos, faixa Bronze.
+- **Resultado esperado:** O motorista tem um motivo a mais para voltar ao mesmo local, sem que isso
+  mude o preço que ele paga.

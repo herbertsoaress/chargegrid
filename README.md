@@ -13,6 +13,8 @@ O SEMS+ continua sendo a camada de gestão energética da GoodWe. O ChargeGrid a
 | [`FLUXO_DE_DADOS.md`](docs/FLUXO_DE_DADOS.md) | Diagramas de entradas e saídas, e a tabela real × simulado × futuro |
 | [`MODELO_PREVISAO.md`](docs/MODELO_PREVISAO.md) | Dados, fórmulas, resultados e limites do modelo de previsão e preço |
 | [`MATRIZ_PLAYBOOK.md`](docs/MATRIZ_PLAYBOOK.md) | O que a GoodWe pede × onde está no projeto |
+| [`TARIFA_TEMPO_E_OCIOSIDADE.md`](docs/TARIFA_TEMPO_E_OCIOSIDADE.md) | Tarifa por tempo de uso, por potência do modo e por ociosidade (extensão) |
+| [`PONTUACAO_FIDELIDADE.md`](docs/PONTUACAO_FIDELIDADE.md) | Pontos por consumo e por regularidade, com faixas (extensão, só visual) |
 | [`ROTEIRO_PITCH.md`](docs/ROTEIRO_PITCH.md) | Roteiro da apresentação, da demonstração e perguntas prováveis |
 | [`ETAPA_5_PROPOSTA.md`](docs/ETAPA_5_PROPOSTA.md) | Texto para o Scrum Master registrar a ampliação de escopo |
 

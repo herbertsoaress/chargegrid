@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { ArrowLeft, Clock, BatteryCharging, Check } from "lucide-react";
 import { toast } from "sonner";
 import { useLiveData, ChargeMode, modeMeta } from "@/components/dashboard/LiveDataProvider";
+import { estimateCharge, MODE_POWER_FACTOR } from "@/lib/pricing";
 
 interface Props {
   chargerId: string | null;
@@ -22,17 +23,14 @@ export function MobileSessionSetup({ chargerId, onBack, onStarted }: Props) {
   const [vehicleId, setVehicleId] = useState<number | null>(null);
   const vehicle = vehicles.find((v) => v.id === vehicleId) ?? vehicles[0];
 
+  // Mesma conta que o backend usa para travar o preco na sessao (services/pricing.py + config.py):
+  // energia x (preco do modelo + acrescimo do modo) + tempo de uso, com um teto por kWh entregue.
   const estimate = useMemo(() => {
     const startPct = 28;
     const needKwh = Math.max(1, ((target - startPct) / 100) * BATTERY_KWH);
-    const factor = mode === "rapido" ? 0.9 : mode === "garantido" ? 0.7 : mode === "sustentavel" ? 0.6 : 0.45;
-    const power = Math.max(3, charger.maxPower * factor);
-    return {
-      kwh: needKwh,
-      minutes: Math.round((needKwh / power) * 60),
-      cost: needKwh * charger.tariff,
-    };
-  }, [target, mode, charger]);
+    const power = Math.max(3, charger.maxPower * MODE_POWER_FACTOR[mode]);
+    return estimateCharge(needKwh, power, mode, forecast.now.price);
+  }, [target, mode, charger, forecast.now.price]);
 
   const confirm = () => {
     // "Maria Souza" -> "Maria S." (nomes completos nao aparecem em telas operacionais)
@@ -151,17 +149,29 @@ export function MobileSessionSetup({ chargerId, onBack, onStarted }: Props) {
           </div>
           <div>
             <p className="text-[10px] text-muted-foreground">Custo estimado</p>
-            <p className="text-sm font-bold text-goodwe-green">R$ {estimate.cost.toFixed(2).replace(".", ",")}</p>
+            <p className="text-sm font-bold text-goodwe-green">R$ {estimate.total.toFixed(2).replace(".", ",")}</p>
           </div>
         </div>
 
-        <div className="glass-card p-3 text-[10px] text-muted-foreground space-y-0.5">
+        <div className="glass-card p-3 text-[10px] text-muted-foreground space-y-1">
           <p>
             Tarifa agora: <span className="text-foreground font-semibold">R$ {forecast.now.price.toFixed(2).replace(".", ",")}/kWh</span>
             {" "}· faixa {forecast.now.band}
+            {estimate.energyPricePerKwh !== forecast.now.price && (
+              <> · com o modo {modeMeta[mode].label}: <span className="text-foreground font-semibold">R$ {estimate.energyPricePerKwh.toFixed(2).replace(".", ",")}/kWh</span></>
+            )}
           </p>
+          <div className="flex items-center justify-between pt-1 border-t border-white/5">
+            <span>Energia ({estimate.kwh.toFixed(1)} kWh)</span>
+            <span className="text-foreground">R$ {estimate.energyAmount.toFixed(2).replace(".", ",")}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span>Tempo de uso (~{estimate.minutes} min)</span>
+            <span className="text-foreground">R$ {estimate.timeAmount.toFixed(2).replace(".", ",")}</span>
+          </div>
           <p>
             Ocupação prevista da rede: {Math.round(forecast.now.occupancyUsed * 100)}% · {forecast.modelLabel}. O preço fica travado ao iniciar a recarga.
+            Quanto mais potente o modo, maior o preço do kWh; quanto mais tempo o carro fica no carregador, mais a tarifa de tempo pesa.
           </p>
         </div>
 

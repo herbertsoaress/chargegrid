@@ -1,8 +1,14 @@
 import { FormEvent, useState } from "react";
-import { ArrowLeft, CreditCard, LogOut, Loader2, Smartphone, Trash2, ChevronRight } from "lucide-react";
+import { ArrowLeft, Award, CreditCard, LogOut, Loader2, Smartphone, Trash2, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { ApiError } from "@/lib/backend/client";
 import { useLiveData } from "@/components/dashboard/LiveDataProvider";
+
+const TIER_CLS: Record<string, string> = {
+  Bronze: "text-amber-600 border-amber-600/40 bg-amber-600/10",
+  Prata: "text-slate-300 border-slate-300/40 bg-slate-300/10",
+  Ouro: "text-goodwe-orange border-goodwe-orange/40 bg-goodwe-orange/10",
+};
 
 interface Props {
   onBack: () => void;
@@ -20,7 +26,7 @@ function vehicleError(e: unknown): string {
 }
 
 export function MobileProfile({ onBack, onNavigate, onLogout }: Props) {
-  const { backend, vehicles, addVehicle, removeVehicle, logout } = useLiveData();
+  const { backend, vehicles, addVehicle, removeVehicle, logout, loyalty } = useLiveData();
   const user = backend.driver;
   const name = user?.name ?? LOCAL_USER.name;
   const email = user?.email ?? LOCAL_USER.email;
@@ -85,6 +91,36 @@ export function MobileProfile({ onBack, onNavigate, onLogout }: Props) {
             {!user && <p className="text-[9px] text-goodwe-orange mt-0.5">Conta de exemplo (modo simulado)</p>}
           </div>
         </div>
+
+        {user && loyalty && (
+          <div className="glass-card p-4">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                <Award className="w-3.5 h-3.5" /> Pontuação
+              </h3>
+              <span className={`text-[10px] px-2 py-0.5 rounded-full border font-semibold ${TIER_CLS[loyalty.tier] ?? TIER_CLS.Bronze}`}>
+                {loyalty.tier}
+              </span>
+            </div>
+            <p className="text-2xl font-bold text-foreground tabular-nums">{loyalty.points} pts</p>
+            <p className="text-[10px] text-muted-foreground mb-3">
+              {loyalty.next_tier
+                ? `Faltam ${loyalty.points_to_next_tier} pontos para ${loyalty.next_tier}`
+                : "Você está na faixa mais alta"}
+              {" · "}{loyalty.points_per_kwh} pontos por kWh carregado
+            </p>
+            <div className="flex items-center justify-between text-[10px] text-muted-foreground mb-1">
+              <span>Meta da semana: {loyalty.week_sessions}/{loyalty.week_goal} recargas</span>
+              {loyalty.week_goal_met && <span className="text-goodwe-green font-semibold">+{loyalty.weekly_goal_bonus} pts</span>}
+            </div>
+            <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all duration-700 ${loyalty.week_goal_met ? "bg-goodwe-green" : "bg-primary"}`}
+                style={{ width: `${Math.min(100, (loyalty.week_sessions / loyalty.week_goal) * 100)}%` }}
+              />
+            </div>
+          </div>
+        )}
 
         <div className="glass-card p-4">
           <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Meus veículos</h3>

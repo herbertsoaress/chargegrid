@@ -64,6 +64,21 @@ class VehicleOut(ORMModel):
     model: str
 
 
+class LoyaltyOut(BaseModel):
+    """Pontuacao do motorista (extensao aprovada pelo grupo -- so visual, sem desconto real)."""
+
+    points: int
+    tier: str
+    next_tier: str | None
+    points_to_next_tier: int | None
+    week_sessions: int
+    week_goal: int
+    week_goal_met: bool
+    weeks_goal_met: int
+    points_per_kwh: int
+    weekly_goal_bonus: int
+
+
 class UserFleetOut(BaseModel):
     id: int
     name: str
@@ -146,6 +161,14 @@ class SessionOut(ORMModel):
     price_source: str
     price_occupancy: float | None
     amount_due: float
+    # valor ao vivo (energia + tempo + ociosidade, com o teto por kWh), aberto em componentes
+    amount_estimate: float
+    energy_amount: float
+    time_amount: float
+    idle_amount: float
+    minutes_charging: float
+    minutes_idle: float
+    price_capped: bool
 
 
 class PayRequest(BaseModel):
@@ -176,6 +199,18 @@ class ReceiptOut(BaseModel):
     price_source: str = "curva"
     price_occupancy: float | None = None
     price_note: str = ""
+    # detalhamento do valor: energia (preco do modelo + acrescimo do modo) + tempo de uso + ociosidade
+    mode_surcharge_per_kwh: float = 0.0
+    energy_price_per_kwh: float = 0.0  # price_per_kwh + mode_surcharge_per_kwh
+    energy_amount: float = 0.0
+    minutes_charging: float = 0.0
+    time_rate_per_minute: float = 0.0
+    time_amount: float = 0.0
+    minutes_idle: float = 0.0
+    idle_rate_per_minute: float = 0.0
+    idle_amount: float = 0.0
+    price_capped: bool = False
+    price_cap_per_kwh: float = 0.0
     amount: float
     payment: PaymentOut | None
     origem: str = "sandbox"
@@ -310,6 +345,12 @@ class ForecastOut(BaseModel):
     price_min: float
     price_max: float
     note: str
+    # tarifas de tempo/potencia/ociosidade (as mesmas que a sessao trava na abertura -- config.py)
+    mode_surcharge_per_kwh: dict[str, float]
+    time_rate_per_minute: float
+    idle_rate_per_minute: float
+    idle_grace_minutes: float
+    price_cap_per_kwh: float
 
 
 class ModelDetailOut(BaseModel):

@@ -25,9 +25,15 @@ from fastapi.testclient import TestClient  # noqa: E402
 from sqlalchemy import create_engine  # noqa: E402
 from sqlalchemy.orm import sessionmaker  # noqa: E402
 
+from app.config import settings  # noqa: E402
 from app.db import Base, get_db  # noqa: E402
 from app.main import app  # noqa: E402
+from app.models import SessionMode  # noqa: E402
 from app.seed import seed_demo_data  # noqa: E402
+from app.services.pricing import mode_surcharge_per_kwh  # noqa: E402
+from app.services.simulator import MODE_FACTOR  # noqa: E402
+
+CHARGER_POWER_KW = 22.0  # todos os carregadores do seed (seed.py: CHARGER_POWER_KW)
 
 
 @pytest.fixture()
@@ -91,3 +97,17 @@ def start_charging(client, headers, charger_id, mode="rapido", **extra):
     cable = client.post(f"/sessions/{sid}/connect-cable", headers=headers)
     assert cable.status_code == 200, cable.text
     return cable.json()
+
+
+def expected_amount(energy_kwh: float, price_per_kwh: float, mode: str = "rapido", idle_minutes: float = 0.0) -> float:
+    """Reproduz a formula de services/pricing.py:breakdown() para conferir o valor cobrado nos
+    testes, sem duplicar os numeros (usa os mesmos MODE_FACTOR/settings que o backend usa)."""
+    power_kw = CHARGER_POWER_KW * MODE_FACTOR[SessionMode(mode)]
+    minutes = round(energy_kwh / power_kw * 60, 2)
+    energy_price = round(price_per_kwh + mode_surcharge_per_kwh(SessionMode(mode)), 4)
+    energy_amount = round(energy_kwh * energy_price, 2)
+    time_amount = round(minutes * settings.time_rate_per_minute, 2)
+    idle_amount = round(idle_minutes * settings.idle_rate_per_minute, 2)
+    raw_total = round(energy_amount + time_amount + idle_amount, 2)
+    cap_total = round(energy_kwh * settings.price_cap_per_kwh, 2)
+    return min(raw_total, cap_total)

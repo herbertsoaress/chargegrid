@@ -1,12 +1,34 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session as DbSession, joinedload
 
 from app.db import get_db
 from app.models import ChargingSession, Role, User
-from app.schemas import UserFleetOut, VehicleOut
-from app.security import require_operator
+from app.schemas import LoyaltyOut, UserFleetOut, VehicleOut
+from app.security import get_current_user, require_operator
+from app.services import loyalty
 
 router = APIRouter(prefix="/users", tags=["users"])
+
+
+@router.get("/me/loyalty", response_model=LoyaltyOut)
+def my_loyalty(db: DbSession = Depends(get_db), user: User = Depends(get_current_user)):
+    """Pontuacao do proprio motorista: 10 pontos por kWh + bonus por bater a meta semanal (3
+    sessoes/semana). E so visual (selo e barra de meta), calculado na hora a partir do historico."""
+    if user.role != Role.driver:
+        raise HTTPException(status_code=403, detail="Pontuacao e so para contas de motorista")
+    status = loyalty.status_for(db, user.id)
+    return LoyaltyOut(
+        points=status.points,
+        tier=status.tier,
+        next_tier=status.next_tier,
+        points_to_next_tier=status.points_to_next_tier,
+        week_sessions=status.week_sessions,
+        week_goal=status.week_goal,
+        week_goal_met=status.week_goal_met,
+        weeks_goal_met=status.weeks_goal_met,
+        points_per_kwh=status.points_per_kwh,
+        weekly_goal_bonus=status.weekly_goal_bonus,
+    )
 
 
 @router.get("", response_model=list[UserFleetOut])

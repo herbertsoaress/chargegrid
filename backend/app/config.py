@@ -68,6 +68,27 @@ class Settings(BaseSettings):
     # CSV de historico usado no treino (relativo a pasta backend/ se nao for absoluto).
     forecast_csv_path: str = "data/fase1-base_de_dados-final.csv"
 
+    # ---- Tarifacao por tempo de uso e por potencia (extensao aprovada pelo grupo, fora do playbook e
+    # da proposta original -- ver docs/ETAPA_5_PROPOSTA.md). Tudo TRAVADO na abertura da sessao: mudar
+    # estas variaveis so afeta sessoes novas. ----
+    # R$ por minuto de recarga. O "tempo de recarga" e a energia entregue dividida pela potencia
+    # nominal do modo (a mesma conta que a tela do app usa pra estimar o tempo), nao o relogio de
+    # parede -- assim nao depende de SIM_TIME_SCALE nem do acelerador do carregador virtual.
+    time_rate_per_minute: float = 0.03
+    # Acrescimo no preco do kWh por modo (potencia maior = mais caro). "rapido" usa 100% da potencia
+    # do carregador; os outros usam menos (ver services/simulator.py: MODE_FACTOR).
+    mode_surcharge_economico: float = 0.00
+    mode_surcharge_sustentavel: float = 0.05
+    mode_surcharge_garantido: float = 0.10
+    mode_surcharge_rapido: float = 0.15
+    # Taxa por minuto parado com a bateria cheia (depois da carencia): desestimula deixar o carro
+    # ocupando a vaga sem carregar. So conta em ambiente com telemetria de SoC (OCPP ou app local).
+    idle_rate_per_minute: float = 0.10
+    idle_grace_minutes: float = 10.0
+    # Teto do preco medio por kWh entregue (energia + tempo + ociosidade, dividido pelos kWh): protege
+    # o cliente de uma sessao muito lenta ou muito parada custar um preco por kWh sem limite.
+    price_cap_per_kwh: float = 2.20
+
     # Fuso usado para "hora do dia" (tarifa dinamica, curvas de potencia, "hoje").
     app_timezone: str = "America/Sao_Paulo"
 

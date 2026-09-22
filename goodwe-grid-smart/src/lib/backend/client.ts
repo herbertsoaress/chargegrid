@@ -11,6 +11,7 @@ import type {
   ApiIntegrationLog,
   ApiBillingSummary,
   ApiInvoice,
+  ApiLoyalty,
   ApiMe,
   ApiMeter,
   ApiMode,
@@ -74,6 +75,7 @@ export const backend = {
 
   // veiculos do motorista logado
   vehicles: (token: string) => request<ApiVehicle[]>("/vehicles/me", { token }),
+  loyalty: (token: string) => request<ApiLoyalty>("/users/me/loyalty", { token }),
   addVehicle: (token: string, body: { plate: string; model: string }) => post<ApiVehicle>("/vehicles", token, body),
   deleteVehicle: (token: string, id: number) => request<void>(`/vehicles/${id}`, { method: "DELETE", token }),
   listStations: () => request<ApiStation[]>("/stations"),

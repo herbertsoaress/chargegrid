@@ -100,6 +100,17 @@ export function MobileCharging({ chargerId, onBack }: Props) {
           </div>
         </div>
 
+        {session.idleMin > 0 && (
+          <div className="glass-card p-3 border border-goodwe-orange/30 bg-goodwe-orange/5">
+            <p className="text-[11px] text-goodwe-orange font-semibold">
+              ⏱️ Bateria cheia há {Math.round(session.idleMin)} min — o carregador já parou de entregar energia
+            </p>
+            <p className="text-[10px] text-muted-foreground mt-0.5">
+              Passada a tolerância inicial, cada minuto parado soma uma taxa de ociosidade ao custo. Finalize a recarga para liberar a vaga.
+            </p>
+          </div>
+        )}
+
         <div className="glass-card p-4">
           <div className="flex items-center justify-between text-[11px] mb-2">
             <span className="text-muted-foreground">Previsão de conclusão</span>

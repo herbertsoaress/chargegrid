@@ -2,9 +2,16 @@ import { describe, expect, it } from "vitest";
 import {
   DEFAULT_WEEKDAY_INDEX,
   EV_CAPACITY_KW,
+  IDLE_GRACE_MIN,
+  IDLE_RATE_PER_MIN,
+  MODE_POWER_FACTOR,
+  MODE_SURCHARGE_PER_KWH,
+  PRICE_CAP_PER_KWH,
   PRICE_MAX,
   PRICE_MIN,
+  TIME_RATE_PER_MIN,
   bandFor,
+  estimateCharge,
   hourlyForecast,
   localForecast,
   occupancyAt,
@@ -91,6 +98,50 @@ describe("modelo local de preco (espelho do backend)", () => {
   });
 });
 
+describe("tarifa por tempo e potencia (extensao aprovada, espelho de backend/app/config.py)", () => {
+  it("tem os mesmos fatores de potencia por modo que o backend (simulator.py: MODE_FACTOR)", () => {
+    expect(MODE_POWER_FACTOR).toEqual({ rapido: 1.0, eco: 0.55, sustentavel: 0.75, garantido: 0.85 });
+  });
+
+  it("economico nao tem acrescimo; rapido tem o maior", () => {
+    expect(MODE_SURCHARGE_PER_KWH.eco).toBe(0);
+    expect(MODE_SURCHARGE_PER_KWH.rapido).toBeGreaterThan(MODE_SURCHARGE_PER_KWH.garantido);
+    expect(MODE_SURCHARGE_PER_KWH.garantido).toBeGreaterThan(MODE_SURCHARGE_PER_KWH.sustentavel);
+    expect(MODE_SURCHARGE_PER_KWH.sustentavel).toBeGreaterThan(MODE_SURCHARGE_PER_KWH.eco);
+  });
+
+  it("estimateCharge soma energia (com o acrescimo do modo) + tempo de uso", () => {
+    // 10 kWh a 5 kW = 120 min; modo eco: sem acrescimo no preco
+    const eco = estimateCharge(10, 5, "eco", 1.2);
+    expect(eco.minutes).toBe(120);
+    expect(eco.energyPricePerKwh).toBe(1.2);
+    expect(eco.energyAmount).toBe(12);
+    expect(eco.timeAmount).toBe(Math.round(120 * TIME_RATE_PER_MIN * 100) / 100);
+    expect(eco.total).toBe(eco.energyAmount + eco.timeAmount);
+  });
+
+  it("modo rapido custa mais que o economico para a mesma energia (preco maior, tempo menor)", () => {
+    const eco = estimateCharge(10, 5, "eco", 1.2);
+    const rapido = estimateCharge(10, 5 / MODE_POWER_FACTOR.eco, "rapido", 1.2); // mesma potencia base do carregador
+    expect(rapido.energyPricePerKwh).toBeGreaterThan(eco.energyPricePerKwh);
+    expect(rapido.minutes).toBeLessThan(eco.minutes);
+  });
+
+  it("aplica o teto do preco medio por kWh quando o tempo pesa muito sobre pouca energia", () => {
+    // preco do modelo perto do maximo + acrescimo do modo rapido + tempo de uso: sem teto passaria de R$ 2,20/kWh
+    const est = estimateCharge(0.5, 3, "rapido", 1.9);
+    const uncapped = est.energyAmount + est.timeAmount;
+    const cap = Math.round(0.5 * PRICE_CAP_PER_KWH * 100) / 100;
+    expect(uncapped).toBeGreaterThan(cap); // confirma que o cenario realmente estouraria o teto
+    expect(est.total).toBe(cap);
+  });
+
+  it("expõe a taxa de ociosidade e a carência para a tela explicar o valor", () => {
+    expect(IDLE_RATE_PER_MIN).toBeGreaterThan(0);
+    expect(IDLE_GRACE_MIN).toBeGreaterThan(0);
+  });
+});
+
 describe("mapeadores da previsao", () => {
   it("priceNote explica a origem do preco e ignora sessoes antigas", () => {
     expect(priceNote("modelo", 0.63)).toContain("ocupação prevista 63%");
@@ -115,6 +166,8 @@ describe("mapeadores da previsao", () => {
       weekday_index: [1.16, 1.18, 1.22, 1.27, 1.43, 0.38, 0.36],
       capacity_kw: 80, base_load_kw: 120, contracted_kw: 200, peak_occupancy_ref: 0.8, price_min: 1.1, price_max: 2.0,
       note: "nota",
+      mode_surcharge_per_kwh: { rapido: 0.15, economico: 0, sustentavel: 0.05, garantido: 0.1 },
+      time_rate_per_minute: 0.03, idle_rate_per_minute: 0.1, idle_grace_minutes: 10, price_cap_per_kwh: 2.2,
     };
     const view = apiForecastToView(api);
     expect(view.origin).toBe("backend");

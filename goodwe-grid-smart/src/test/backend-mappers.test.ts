@@ -19,6 +19,13 @@ const baseSession: ApiSession = {
   current_pct: 60,
   price_per_kwh_snapshot: 2.1,
   amount_due: 26.25,
+  amount_estimate: 26.25,
+  energy_amount: 26.25,
+  time_amount: 0,
+  idle_amount: 0,
+  minutes_charging: 0,
+  minutes_idle: 0,
+  price_capped: false,
   power_released: true,
   lock_released: true,
 };

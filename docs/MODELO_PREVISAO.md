@@ -47,6 +47,11 @@ O CSV não tem hora do dia: a distribuição dentro do dia vem da curva P1.
 
 6. **Reserva:** se o modelo falhar, o preço usa a curva horária (`origem = reserva`). O app também tem uma cópia do cálculo (`goodwe-grid-smart/src/lib/pricing.ts`) para funcionar sem servidor.
 
+7. **Valor total da sessão (extensão aprovada, fora deste modelo):** este documento cobre só o preço
+   do **kWh**. O valor cobrado na sessão também soma um acréscimo por modo e uma tarifa por tempo de
+   uso, com uma taxa de ociosidade se a bateria enche e o carro continua na vaga — ver
+   [`TARIFA_TEMPO_E_OCIOSIDADE.md`](TARIFA_TEMPO_E_OCIOSIDADE.md).
+
 ### Exemplos (cenário de referência)
 
 | Momento | Ocupação | Preço |

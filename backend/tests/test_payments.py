@@ -6,7 +6,7 @@ from app.main import app
 from app.models import PaymentMethod, PaymentStatus
 from app.services import payments
 from app.services.payments import PaymentConfigError, PaymentProvider, PaymentResult, SandboxProvider
-from tests.conftest import free_charger_id, start_charging
+from tests.conftest import expected_amount, free_charger_id, start_charging
 
 
 class _Fake(PaymentProvider):
@@ -135,18 +135,19 @@ def _pay_bump_and_stop(client, db_factory, headers, extra_kwh):
 def test_final_amount_follows_the_final_energy_in_sandbox(client, db_factory, driver_headers):
     sid, paid, stopped = _pay_bump_and_stop(client, db_factory, driver_headers, extra_kwh=0.7)
     price = stopped["price_per_kwh_snapshot"]
-    assert paid["amount"] == round(10.0 * price, 2)
+    assert paid["amount"] == expected_amount(10.0, price)
     assert stopped["energy_kwh"] == 10.7
-    assert stopped["amount_due"] == round(10.7 * price, 2)
+    final = expected_amount(10.7, price)
+    assert stopped["amount_due"] == final
     receipt = client.get(f"/sessions/{sid}/receipt", headers=driver_headers).json()
-    assert receipt["amount"] == round(10.7 * price, 2)
+    assert receipt["amount"] == final
     assert receipt["payment"]["amount"] == receipt["amount"]  # o pagamento de teste acompanha o valor final
     events = client.get(f"/sessions/{sid}/events", headers=driver_headers).json()
     adjusted = [e for e in events if e["type"] == "amount_adjusted"]
     assert len(adjusted) == 1
     assert adjusted[0]["payload_json"] == {
         "previous": paid["amount"],
-        "final": round(10.7 * price, 2),
+        "final": final,
         "energy_kwh": 10.7,
         "to_reconcile": False,
     }

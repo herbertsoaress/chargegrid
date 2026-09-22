@@ -41,9 +41,10 @@ Console de operação com 8 áreas, organizadas em 3 grupos na barra lateral:
   carregadores (BootNotification, Authorize, StartTransaction, MeterValues, StatusNotification, Heartbeat…),
   gravadas no banco; sem backend, um terminal simulado. Também traz o painel de saúde do banco/API.
 - **IA & Previsão** (`DashboardInsights`) — o **modelo de previsão de demanda e preço**: preço agora, previsão
-  de ocupação e de preço por hora do dia, alerta de saturação, versão e métricas do modelo, botão
-  **Retreinar modelo** (operador), download `tarifas_horarias.csv`, e os cards de insight (peak shaving,
-  manutenção) com o botão que aciona `applyPeakShaving()`. Sem backend, usa uma cópia local do cálculo.
+  de ocupação e de preço por hora do dia, alerta de saturação, versão e métricas do modelo, um cartão com
+  o preço do kWh por modo de recarga (acréscimo por potência), botão **Retreinar modelo** (operador),
+  download `tarifas_horarias.csv`, e os cards de insight (peak shaving, manutenção) com o botão que aciona
+  `applyPeakShaving()`. Sem backend, usa uma cópia local do cálculo.
 - **Simulador "E Se...?"** (`DashboardSimulator`) — sliders para nº de carregadores, consumo do prédio,
   limite contratado, veículos simultâneos e geração solar; compara o pico de demanda "sem" e "com"
   ChargeGrid e projeta o ROI em 24 meses.
@@ -73,14 +74,19 @@ progresso) → Histórico → Perfil (veículos) → Preços`
   Code/RFID).
 - **MobileSessionSetup** — escolha de horário de saída, nível de bateria desejado e modo de recarga
   (Rápido, Econômico, Sustentável, Garantido), com estimativa de tempo/energia/custo antes de confirmar.
+  O custo já soma o acréscimo do modo e o tempo de uso (extensão aprovada — ver
+  `../docs/TARIFA_TEMPO_E_OCIOSIDADE.md`).
 - **MobileCharging** — sessão em andamento: anel de progresso SVG, potência atual, kWh entregues, tempo
-  decorrido, custo estimado e botão de finalizar.
+  decorrido, custo estimado (com backend, inclui tempo e ociosidade) e botão de finalizar. Avisa quando
+  a bateria enche e o carro fica parado no carregador além da tolerância.
 - **MobileHistory** — sessões concluídas (as gerada nesta sessão do navegador + um histórico fixo de
   exemplo), com total de kWh e custo do mês.
 - **MobileLogin** — login e cadastro de motorista (o cadastro nunca cria operador); "Entrar como
   demonstração" só aparece se o backend liberar (`/health` → `demo_login`).
-- **MobileProfile** — dados da conta e **veículos** (adicionar e remover; a placa é validada e o veículo
-  usado numa sessão não pode ser removido) e total gasto.
+- **MobileProfile** — dados da conta, **veículos** (adicionar e remover; a placa é validada e o veículo
+  usado numa sessão não pode ser removido), total gasto e o cartão de **pontuação de fidelidade** (10
+  pontos por kWh + bônus por bater a meta semanal, com faixas Bronze/Prata/Ouro — extensão aprovada, só
+  visual, ver `../docs/PONTUACAO_FIDELIDADE.md`).
 - **MobilePricing** — preço do kWh agora e por hora, vindos do modelo de previsão, com as faixas fora de
   ponta, intermediária e ponta.
 

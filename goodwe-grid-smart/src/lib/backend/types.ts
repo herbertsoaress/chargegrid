@@ -46,6 +46,14 @@ export interface ApiSession {
   price_source?: string; // "modelo" | "modelo_tempo_real" | "reserva" | "curva"
   price_occupancy?: number | null;
   amount_due: number;
+  // valor ao vivo (energia + tempo + ociosidade, com o teto por kWh), aberto em componentes
+  amount_estimate: number;
+  energy_amount: number;
+  time_amount: number;
+  idle_amount: number;
+  minutes_charging: number;
+  minutes_idle: number;
+  price_capped: boolean;
   power_released: boolean;
   lock_released: boolean;
 }
@@ -69,10 +77,35 @@ export interface ApiReceipt {
   price_source?: string;
   price_occupancy?: number | null;
   price_note?: string;
+  // detalhamento do valor: energia (preco do modelo + acrescimo do modo) + tempo de uso + ociosidade
+  mode_surcharge_per_kwh?: number;
+  energy_price_per_kwh?: number;
+  energy_amount?: number;
+  minutes_charging?: number;
+  time_rate_per_minute?: number;
+  time_amount?: number;
+  minutes_idle?: number;
+  idle_rate_per_minute?: number;
+  idle_amount?: number;
+  price_capped?: boolean;
+  price_cap_per_kwh?: number;
   amount: number;
   payment: ApiPayment | null;
   origem: string;
   aviso: string;
+}
+
+export interface ApiLoyalty {
+  points: number;
+  tier: string;
+  next_tier: string | null;
+  points_to_next_tier: number | null;
+  week_sessions: number;
+  week_goal: number;
+  week_goal_met: boolean;
+  weeks_goal_met: number;
+  points_per_kwh: number;
+  weekly_goal_bonus: number;
 }
 
 export interface ApiBillingSummary {
@@ -234,6 +267,12 @@ export interface ApiForecast {
   price_min: number;
   price_max: number;
   note: string;
+  // tarifas de tempo/potencia/ociosidade (as mesmas travadas na sessao -- ver services/pricing.py)
+  mode_surcharge_per_kwh: Record<ApiMode, number>;
+  time_rate_per_minute: number;
+  idle_rate_per_minute: number;
+  idle_grace_minutes: number;
+  price_cap_per_kwh: number;
 }
 
 export interface ApiModelDetail {

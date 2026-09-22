@@ -26,10 +26,17 @@ Trocar o preço fixo por horário por um preço calculado por um modelo de previ
 | 5.5 | Camada de pagamentos com provedor trocável | Provedor sandbox atual e recusa/pendência tratadas; troca por provedor real sem mexer no resto |
 | 5.6 | Login real (motorista e operador) | Console e app exigem autenticação; contas de operador definidas pelo administrador |
 | 5.7 | Documentação: fluxo de dados, modelo, matriz de aderência, roteiro | Pasta `docs/` do repositório |
+| 5.8 | Tarifa por tempo de uso e por potência do modo, com ociosidade e teto por kWh *(ideia do próprio grupo, não pedida pelo playbook nem pela proposta original)* | Valor da sessão detalhado (energia/tempo/ociosidade) no comprovante; `docs/TARIFA_TEMPO_E_OCIOSIDADE.md` |
+| 5.9 | Pontuação de fidelidade do motorista (consumo + regularidade semanal), só visual *(idem, ideia do grupo)* | Cartão de pontos e faixa no Perfil do app; `docs/PONTUACAO_FIDELIDADE.md` |
 
 ## Estado
 
-Os itens 5.1 a 5.7 estão **implementados e testados** (testes automáticos do backend e do frontend, e uma recarga completa verificada de ponta a ponta contra o Supabase). Falta publicar (Vercel e Render).
+Os itens 5.1 a 5.9 estão **implementados e testados** (testes automáticos do backend e do frontend, e uma recarga completa verificada de ponta a ponta contra o Supabase). Falta publicar (Vercel e Render).
+
+Os itens 5.8 e 5.9 foram adicionados **depois** da aprovação inicial da Etapa 5: não vêm do playbook da
+GoodWe nem da proposta original, são ideias comerciais do próprio grupo para reforçar a camada de
+tarifação e retenção de cliente. Por isso ficam destacados aqui, para o Scrum Master decidir se entram
+no escopo da banca.
 
 ## Riscos e controles
 
@@ -46,3 +53,5 @@ Os itens 5.1 a 5.7 estão **implementados e testados** (testes automáticos do b
 1. Aprovar a Etapa 5 como parte do escopo da próxima banca.
 2. Confirmar que **carregador e medidor virtuais**, declarados como simulados, atendem ao pilar "protocolos abertos" enquanto não houver equipamento físico.
 3. Indicar o responsável pelo contato com FIAP/GoodWe para as validações da Etapa 0 (credenciais, ficha técnica do carregador, mapa de registradores do medidor).
+4. Aprovar (ou não) os itens 5.8 e 5.9 (tarifa por tempo/potência e pontuação de fidelidade) como parte
+   do escopo apresentado à banca, já que são ideias do grupo e não pedidos externos.

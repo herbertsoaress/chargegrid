@@ -4,6 +4,17 @@
 //
 //   ocupacao(dia, hora) = min(1, O_ref * (I_dia / I_ref) * g(hora))     g(h) = P1(h)/25,  P1(t) = 5 + 20*sen(pi*t/24)
 //   R$/kWh = 1,10 + 0,90 * ocupacao
+//
+// Alem do preco por kWh, a sessao tambem cobra por TEMPO de uso e por POTENCIA do modo escolhido
+// (extensao aprovada pelo grupo, fora do playbook e da proposta original -- ver docs/ETAPA_5_PROPOSTA.md):
+//
+//   preco_energia = preco_do_modelo + acrescimo_do_modo
+//   valor = energia_kwh * preco_energia + minutos_de_uso * TIME_RATE_PER_MIN
+//         + max(0, minutos_parado_com_bateria_cheia - IDLE_GRACE_MIN) * IDLE_RATE_PER_MIN
+//   valor = min(valor, energia_kwh * PRICE_CAP_PER_KWH)   -- teto do preco medio por kWh entregue
+//
+// Estes valores SO servem para a estimativa mostrada antes de iniciar (sem servidor). A sessao real
+// trava as tarifas no backend na abertura (services/pricing.py); mudar aqui nao muda o que e cobrado.
 
 export const PRICE_MIN = 1.1;
 export const PRICE_MAX = 2.0;
@@ -12,6 +23,52 @@ export const SATURATION_THRESHOLD = 0.9;
 export const CONTRACTED_KW = 200;
 export const BASE_LOAD_KW = 120;
 export const EV_CAPACITY_KW = CONTRACTED_KW - BASE_LOAD_KW; // 80 kW para carros
+
+// Fracao da potencia maxima do carregador usada por cada modo (identico a backend/app/services/simulator.py).
+export const MODE_POWER_FACTOR: Record<"rapido" | "eco" | "sustentavel" | "garantido", number> = {
+  rapido: 1.0,
+  eco: 0.55,
+  sustentavel: 0.75,
+  garantido: 0.85,
+};
+
+// Acrescimo no preco do kWh por modo (potencia maior = mais caro). Identico a backend/app/config.py.
+export const MODE_SURCHARGE_PER_KWH: Record<"rapido" | "eco" | "sustentavel" | "garantido", number> = {
+  eco: 0.0,
+  sustentavel: 0.05,
+  garantido: 0.1,
+  rapido: 0.15,
+};
+
+export const TIME_RATE_PER_MIN = 0.03; // R$ por minuto de recarga
+export const IDLE_RATE_PER_MIN = 0.1; // R$ por minuto parado com a bateria cheia
+export const IDLE_GRACE_MIN = 10; // minutos de tolerancia antes de cobrar ociosidade
+export const PRICE_CAP_PER_KWH = 2.2; // teto do preco medio (energia + tempo + ociosidade) por kWh entregue
+
+export interface ChargeEstimate {
+  kwh: number;
+  minutes: number;
+  energyPricePerKwh: number;
+  energyAmount: number;
+  timeAmount: number;
+  total: number;
+}
+
+/** Estimativa mostrada ANTES de iniciar a recarga (energia, tempo e custo total, com o acrescimo do modo). */
+export function estimateCharge(
+  kwh: number,
+  powerKw: number,
+  mode: keyof typeof MODE_POWER_FACTOR,
+  basePricePerKwh: number,
+): ChargeEstimate {
+  const minutes = Math.round((kwh / Math.max(3, powerKw)) * 60);
+  const energyPricePerKwh = round2(basePricePerKwh + MODE_SURCHARGE_PER_KWH[mode]);
+  const energyAmount = round2(kwh * energyPricePerKwh);
+  const timeAmount = round2(minutes * TIME_RATE_PER_MIN);
+  const rawTotal = round2(energyAmount + timeAmount);
+  const cap = round2(kwh * PRICE_CAP_PER_KWH);
+  return { kwh, minutes, energyPricePerKwh, energyAmount, timeAmount, total: Math.min(rawTotal, cap) };
+}
 
 // segunda..domingo; calibrado com o CSV do grupo (mesmos valores embutidos no backend)
 export const DEFAULT_WEEKDAY_INDEX = [1.16, 1.18, 1.22, 1.27, 1.43, 0.38, 0.36];

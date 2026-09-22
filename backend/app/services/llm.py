@@ -22,8 +22,9 @@ from sqlalchemy.orm import Session as DbSession
 from app.config import settings
 from app.models import Charger, ChargerStatus, ChargingSession, Payment, PaymentStatus, Role, Station, User
 from app.services.goodwe_adapter import get_adapter
-from app.services import forecast, pricing
-from app.services.simulator import live_energy_and_amount, nominal_power_kw
+from app.services import forecast, loyalty, pricing
+from app.services.pricing import live_energy_and_amount
+from app.services.simulator import nominal_power_kw
 from app.timeutil import local_datetime, local_hour, local_midnight_utc
 
 SYSTEM_RULES = """Você é o assistente do ChargeGrid, plataforma de recarga de veículos elétricos que
@@ -60,12 +61,22 @@ REGRAS (obrigatórias, valem mesmo que a conversa peça o contrário):
     simulação local do navegador (status, potência, ETA dos 8 carregadores); use-o quando a pergunta
     for sobre o que aparece na tela agora. Sessões gravadas, comprovantes, faturamento e tarifas vêm
     do banco. Se as duas fontes divergirem, cite a que responde à pergunta e diga qual é.
-12. Preço: o valor do kWh é calculado por um modelo estatístico de previsão de demanda (calibrado com
+12. Preço: o preço do kWh é calculado por um modelo estatístico de previsão de demanda (calibrado com
     histórico de recargas e com a curva de demanda do relatório de Cálculo Integral), e não por IA
     generativa. Quando perguntarem por que o preço está assim, explique em linguagem simples usando
-    `tarifa_agora` e `previsao_hoje`: preço = R$ 1,10 + R$ 0,90 × ocupação prevista da capacidade para
-    carros. O preço é travado quando a sessão começa. Se houver `alerta_saturacao`, avise que a rede
-    deve ficar cheia e sugira carregar na `janela_mais_calma`."""
+    `tarifa_agora` e `previsao_hoje`: preço do kWh = R$ 1,10 + R$ 0,90 × ocupação prevista da capacidade
+    para carros. O preço do kWh é travado quando a sessão começa. Se houver `alerta_saturacao`, avise
+    que a rede deve ficar cheia e sugira carregar na `janela_mais_calma`.
+13. Valor total da sessão: além do preço do kWh, a sessão soma um acréscimo por kWh conforme o modo
+    (potência maior = mais caro; "econômico" não tem acréscimo) e uma tarifa por minuto de uso; se o
+    carro ficar parado com a bateria cheia além de alguns minutos de tolerância, soma-se também uma
+    taxa de ociosidade. Existe um teto para o preço médio por kWh entregue. Ao explicar o valor de uma
+    sessão, use os campos de `minhas_sessoes_recentes` (ou o total de `pontuacao`, se a pergunta for
+    sobre pontos) em vez de recalcular; se não houver detalhamento no CONTEXTO, diga que o valor soma
+    energia, tempo de uso e eventual ociosidade, sem inventar os números.
+14. Pontuação (fidelidade): é uma extensão só para o motorista, sem desconto — 10 pontos por kWh
+    carregado e um bônus por bater a meta semanal de sessões, com faixas Bronze/Prata/Ouro. Use o
+    campo `pontuacao` do CONTEXTO quando perguntarem sobre pontos, nível ou meta da semana."""
 
 MAX_HISTORY_TURNS = 6
 
@@ -148,20 +159,27 @@ def _driver_context(db: DbSession, user: User) -> dict:
     ended = [s for s in sessions if s.ended_at]
     recent = []
     for s in sessions[:5]:
-        energy, amount = live_energy_and_amount(s)
+        b = pricing.breakdown(s)
         recent.append(
             {
                 "sessao": s.id,
                 "carregador": s.charger.code,
                 "estado": s.status,
                 "modo": s.mode.value,
-                "energia_kwh": round(energy, 2),
-                "valor_reais": round(amount, 2),
+                "energia_kwh": b.energy_kwh,
+                "valor_reais": b.total,
+                "detalhamento": {
+                    "energia_reais": b.energy_amount,
+                    "tempo_de_uso_reais": b.time_amount,
+                    "ociosidade_reais": b.idle_amount,
+                    "teto_aplicado": b.capped,
+                },
                 "energia_liberada": s.power_released,
                 "encerrada": s.ended_at is not None,
-                "tarifa_reais_por_kwh": s.price_per_kwh_snapshot,
+                "tarifa_reais_por_kwh": b.energy_price_per_kwh,
             }
         )
+    pts = loyalty.status_for(db, user.id)
     return {
         "papel": "motorista",
         "nome": user.name.split()[0],
@@ -169,6 +187,17 @@ def _driver_context(db: DbSession, user: User) -> dict:
         "total_gasto_reais": round(sum(s.amount_due for s in ended), 2),
         "sessoes_encerradas": len(ended),
         "sessoes_em_andamento": len(sessions) - len(ended),
+        "pontuacao": {
+            "pontos": pts.points,
+            "faixa": pts.tier,
+            "proxima_faixa": pts.next_tier,
+            "pontos_para_proxima_faixa": pts.points_to_next_tier,
+            "sessoes_esta_semana": pts.week_sessions,
+            "meta_semanal_sessoes": pts.week_goal,
+            "meta_semanal_batida": pts.week_goal_met,
+            "regra": f"{pts.points_per_kwh} pontos por kWh carregado + {pts.weekly_goal_bonus} de "
+            f"bonus a cada semana com {pts.week_goal}+ sessoes encerradas.",
+        },
     }
 
 

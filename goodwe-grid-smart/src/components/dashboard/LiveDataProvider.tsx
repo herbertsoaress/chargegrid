@@ -3,7 +3,7 @@ import { toast } from "sonner";
 import { backend as api, ApiError } from "@/lib/backend/client";
 import { backendEnabled } from "@/lib/backend/config";
 import { apiForecastToView, apiSessionToCompleted, formatBrl, priceNote, toApiMode } from "@/lib/backend/mappers";
-import type { ApiAssistantAnswer, ApiBillingSummary, ApiChatTurn, ApiRole, ApiToken, ApiVehicle } from "@/lib/backend/types";
+import type { ApiAssistantAnswer, ApiBillingSummary, ApiChatTurn, ApiLoyalty, ApiRole, ApiToken, ApiVehicle } from "@/lib/backend/types";
 import { EV_CAPACITY_KW, localForecast, type ForecastView } from "@/lib/pricing";
 
 // A cada quantos ms o "controlador simulado" reporta MeterValues ao backend.
@@ -52,6 +52,10 @@ export interface LiveCharger {
   mode?: ChargeMode | null;
   departureTime?: string | null;
   sessionKwh?: number;
+  /** Custo ao vivo vindo do backend (energia + tempo + ociosidade), so para sessoes no modo OCPP. */
+  liveCost?: number;
+  /** Minutos parado com a bateria cheia (ociosidade), so no modo OCPP. */
+  liveIdleMin?: number;
 }
 
 export interface ActiveSession {
@@ -65,6 +69,8 @@ export interface ActiveSession {
   currentPower: number;
   elapsedMin: number;
   estimatedCost: number;
+  /** Minutos parado com a bateria cheia (ociosidade). So preenchido no modo OCPP (backend-driven). */
+  idleMin: number;
   kwh: number;
   priority: ChargeMode;
   vehicleId?: number; // veiculo cadastrado no perfil (quando logado)
@@ -108,7 +114,7 @@ interface LiveData {
   completedSessions: CompletedSession[];
   startSession: (
     chargerId: string,
-    session: Omit<ActiveSession, "chargerId" | "startedAt" | "currentPct" | "currentPower" | "elapsedMin" | "estimatedCost" | "kwh">
+    session: Omit<ActiveSession, "chargerId" | "startedAt" | "currentPct" | "currentPower" | "elapsedMin" | "estimatedCost" | "idleMin" | "kwh">
   ) => void;
   endSession: (chargerId: string) => void;
   applyPeakShaving: () => void;
@@ -135,6 +141,8 @@ interface LiveData {
   vehicles: ApiVehicle[];
   addVehicle: (plate: string, model: string) => Promise<void>;
   removeVehicle: (id: number) => Promise<void>;
+  /** Pontuacao do motorista logado (extensao aprovada: so visual, sem desconto). Null se nao logado. */
+  loyalty: ApiLoyalty | null;
   /** Retreina o modelo com o CSV (so operador, so com backend). Devolve a mensagem para mostrar ao usuario. */
   retrainForecast: () => Promise<string>;
   /**
@@ -255,6 +263,7 @@ function LiveDataRoot({ children }: { children: ReactNode }) {
   const [apiHistory, setApiHistory] = useState<CompletedSession[]>([]);
   const [persistedSessionIds, setPersistedSessionIds] = useState<Record<string, number>>({});
   const [vehicles, setVehicles] = useState<ApiVehicle[]>([]);
+  const [loyalty, setLoyalty] = useState<ApiLoyalty | null>(null);
   // idByCode: codigo do carregador (CG-001) -> id no banco. tokens: sessao dos usuarios logados (so em memoria).
   const conn = useRef<{ idByCode: Record<string, number> } | null>(null);
   const tokens = useRef<{ driver?: string; operator?: string }>({});
@@ -272,6 +281,16 @@ function LiveDataRoot({ children }: { children: ReactNode }) {
       setApiHistory((await api.completedSessions(token)).map(apiSessionToCompleted));
     } catch {
       /* historico e "nice to have": falha silenciosa */
+    }
+  };
+
+  const refreshLoyalty = async () => {
+    const token = tokens.current.driver;
+    if (!token) return;
+    try {
+      setLoyalty(await api.loyalty(token));
+    } catch {
+      /* pontuacao e "nice to have": falha silenciosa */
     }
   };
 
@@ -400,6 +419,8 @@ function LiveDataRoot({ children }: { children: ReactNode }) {
                     currentPower: s.current_power_kw,
                     sessionKwh: s.energy_kwh,
                     etaMin: s.current_power_kw > 0 ? Math.round((kwhLeft / s.current_power_kw) * 60) : 0,
+                    liveCost: s.amount_estimate,
+                    liveIdleMin: s.minutes_idle,
                   },
             ),
           );
@@ -528,6 +549,7 @@ function LiveDataRoot({ children }: { children: ReactNode }) {
         description: `${formatBrl(receipt.amount)} · pagamento sandbox (sem valor fiscal)`,
       });
       refreshHistory();
+      void refreshLoyalty(); // a sessao que acabou de encerrar pode ter batido a meta da semana
     } catch (e) {
       pushLog("WARN", chargerId, `[API] encerramento NÃO gravado: ${errMsg(e)}`);
       toast.warning("Não foi possível fechar a sessão no servidor", { description: errMsg(e) });
@@ -559,7 +581,7 @@ function LiveDataRoot({ children }: { children: ReactNode }) {
     pushLog("INFO", chargerId, `StartTransaction idTag=APP-MOBILE meterStart=0 priority=${session.priority}`);
     setActiveSessions((prev) => [
       ...prev.filter((s) => s.chargerId !== chargerId),
-      { ...session, chargerId, startedAt: Date.now(), currentPct: 5, currentPower: 0, elapsedMin: 0, estimatedCost: 0, kwh: 0 },
+      { ...session, chargerId, startedAt: Date.now(), currentPct: 5, currentPower: 0, elapsedMin: 0, estimatedCost: 0, idleMin: 0, kwh: 0 },
     ]);
     if (driven) return; // o status "Charging" vem do carregador (StatusNotification) via backend
     setTimeout(() => {
@@ -619,6 +641,7 @@ function LiveDataRoot({ children }: { children: ReactNode }) {
     if (role === "driver") {
       void refreshHistory();
       void refreshVehicles();
+      void refreshLoyalty();
     }
     pushLog("ACK", "CSMS", `[API] ${role === "operator" ? "operador" : "motorista"} ${user.name} autenticado`);
     return user;
@@ -640,6 +663,7 @@ function LiveDataRoot({ children }: { children: ReactNode }) {
     if (role === "driver") {
       setApiHistory([]);
       setVehicles([]);
+      setLoyalty(null);
     }
   };
 
@@ -770,7 +794,10 @@ function LiveDataRoot({ children }: { children: ReactNode }) {
             currentPower: c.currentPower,
             elapsedMin: Math.max(0, Math.round((Date.now() - s.startedAt) / 60000)),
             kwh,
-            estimatedCost: kwh * c.tariff,
+            // No modo OCPP, o backend ja soma energia + tempo de uso + ociosidade (com o teto por
+            // kWh); sem isso, cai na conta local simples (so energia x tarifa).
+            estimatedCost: c.liveCost ?? kwh * c.tariff,
+            idleMin: c.liveIdleMin ?? 0,
           };
         })
       );
@@ -834,6 +861,7 @@ function LiveDataRoot({ children }: { children: ReactNode }) {
     vehicles,
     addVehicle,
     removeVehicle,
+    loyalty,
     retrainForecast,
     askAssistant,
     totals: {

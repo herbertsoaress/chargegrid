@@ -1,6 +1,6 @@
 from app.services import goodwe_adapter
 from app.services.goodwe_adapter import GoodWeIntegrationError, mask_serial
-from tests.conftest import free_charger_id, start_charging
+from tests.conftest import expected_amount, free_charger_id, start_charging
 
 
 # ---------------- medidor (MeterValues) e comprovante ----------------
@@ -35,7 +35,9 @@ def test_reported_energy_drives_amount_and_receipt(client, driver_headers, opera
 
     receipt = client.get(f"/sessions/{sid}/receipt", headers=driver_headers).json()
     assert receipt["energy_kwh"] == 4.0
-    assert receipt["amount"] == round(4.0 * receipt["price_per_kwh"], 2)
+    # valor = energia (preco do modelo + acrescimo do modo "rapido") + tempo de uso; sem ociosidade aqui
+    assert receipt["amount"] == expected_amount(4.0, receipt["price_per_kwh"])
+    assert receipt["amount"] == round(receipt["energy_amount"] + receipt["time_amount"] + receipt["idle_amount"], 2)
     assert receipt["payment"]["provider_ref"].startswith("SANDBOX-PIX-")
     assert receipt["receipt_number"].startswith("CG-") and receipt["origem"] == "sandbox"
 

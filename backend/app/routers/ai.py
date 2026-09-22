@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session as DbSession
 
 from app.config import settings
 from app.db import get_db
-from app.models import ForecastModel, User
+from app.models import ForecastModel, SessionMode, User
 from app.schemas import ForecastNow, ForecastOut, ForecastPoint, ForecastSummary, ModelDetailOut, ModelInfo
 from app.security import require_operator
 from app.services import forecast, pricing
@@ -65,6 +65,11 @@ def get_forecast(db: DbSession = Depends(get_db)):
         price_min=pricing.PRICE_MIN,
         price_max=pricing.PRICE_MAX,
         note=NOTE,
+        mode_surcharge_per_kwh={m.value: pricing.mode_surcharge_per_kwh(m) for m in SessionMode},
+        time_rate_per_minute=settings.time_rate_per_minute,
+        idle_rate_per_minute=settings.idle_rate_per_minute,
+        idle_grace_minutes=settings.idle_grace_minutes,
+        price_cap_per_kwh=settings.price_cap_per_kwh,
     )
 
 

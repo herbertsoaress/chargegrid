@@ -18,14 +18,16 @@ Se você só quer começar, leia as seções 1, 2 e 3.
 ```
 
 > Outros documentos: a pasta `docs/` tem o fluxo de dados (`FLUXO_DE_DADOS.md`), o modelo de previsão
-> (`MODELO_PREVISAO.md`), a matriz "o que a GoodWe pede × o que temos" (`MATRIZ_PLAYBOOK.md`), o roteiro da
-> apresentação (`ROTEIRO_PITCH.md`) e o texto da Etapa 5 (`ETAPA_5_PROPOSTA.md`).
+> (`MODELO_PREVISAO.md`), a tarifa por tempo/potência/ociosidade (`TARIFA_TEMPO_E_OCIOSIDADE.md`), a
+> pontuação de fidelidade (`PONTUACAO_FIDELIDADE.md`), a matriz "o que a GoodWe pede × o que temos"
+> (`MATRIZ_PLAYBOOK.md`), o roteiro da apresentação (`ROTEIRO_PITCH.md`) e o texto da Etapa 5
+> (`ETAPA_5_PROPOSTA.md`).
 
 | Pasta | O que é | Precisa de banco? |
 |---|---|---|
 | `goodwe-grid-smart/` | **Frontend principal** (porte do projeto Lovable): Dashboard do operador + App do motorista. Fala com o backend; se o backend não estiver disponível, continua rodando em **simulação local**. | não |
 | `backend/` | **API FastAPI**: autenticação, sessões de recarga (máquina de estados), previsão de demanda e preço dinâmico, pagamento (sandbox), comprovantes, servidor OCPP, medidor MODBUS, integração GoodWe, assistente com IA, logs. | SQLite (padrão) ou Supabase |
-| `supabase/` | **Schema do banco** (SQL) já aplicado no projeto Supabase `chargegrid` (5 migrations). | — |
+| `supabase/` | **Schema do banco** (SQL) já aplicado no projeto Supabase `chargegrid` (6 migrations). | — |
 | `docs/` | Documentação de arquitetura, modelo de previsão e apresentação. | — |
 | `frontend/` | Primeira versão do frontend (React + rotas). Fica como referência; o principal agora é o `goodwe-grid-smart/`. Ainda funciona com o mesmo backend. | não |
 | `render.yaml` | Receita para publicar o backend no Render. | — |
@@ -71,6 +73,10 @@ copy .env.example .env      # Windows (Linux/Mac: cp .env.example .env)
 | `SATURATION_THRESHOLD` | A partir de que ocupação prevista o painel alerta saturação (0,90). | raramente |
 | `FORECAST_CSV_PATH` | CSV que treina o modelo (`data/fase1-base_de_dados-final.csv`). | Ao ter dados novos (mesmas colunas), depois clique em "Retreinar" |
 | `PAYMENT_PROVIDER` | Provedor de pagamento. Hoje só `sandbox` (aprovação simulada). | Quando existir um provedor real |
+| `TIME_RATE_PER_MINUTE` | R$ por minuto de recarga, além do preço por kWh (padrão 0,03). Extensão aprovada — ver `docs/TARIFA_TEMPO_E_OCIOSIDADE.md`. | raramente |
+| `MODE_SURCHARGE_ECONOMICO` / `_SUSTENTAVEL` / `_GARANTIDO` / `_RAPIDO` | Acréscimo no preço do kWh por modo (potência maior = mais caro). Padrão 0,00 / 0,05 / 0,10 / 0,15. | Para reequilibrar o preço entre os modos |
+| `IDLE_RATE_PER_MINUTE` / `IDLE_GRACE_MINUTES` | Taxa por minuto parado com a bateria cheia (padrão 0,10) e minutos de tolerância antes de cobrar (padrão 10). | raramente |
+| `PRICE_CAP_PER_KWH` | Teto do preço médio por kWh entregue, somando energia + tempo + ociosidade (padrão 2,20). | raramente |
 | `OCPP_ENABLED` | Liga o servidor OCPP (`ws://…/ocpp/{código do carregador}`). | `true` (padrão) |
 | `OCPP_SHARED_TOKEN` | Se preenchido, o carregador precisa enviar essa senha (HTTP Basic). Vazio = aberto. | Em produção com carregador físico |
 | `OCPP_SIMULATOR` | Sobe os 8 carregadores virtuais dentro do backend, que se conectam por OCPP de verdade. | `true` para demonstrar; `false` com carregador real |
@@ -99,7 +105,7 @@ por isso nunca coloque senha aqui.
 
 O projeto **`chargegrid`** já foi criado (região `sa-east-1`, ref `mnwbfokesysinsxovwkx`) e as tabelas já foram
 criadas pelas migrations em `supabase/migrations/` (`init_chargegrid`, `single_site`, `ai_pricing`,
-`ocpp_messages` e `commercial_only`), com **RLS ligado e sem políticas**
+`ocpp_messages`, `commercial_only` e `time_power_tariff`), com **RLS ligado e sem políticas**
 (a chave pública `anon` do Supabase não enxerga nada; só o backend, conectado como `postgres`, lê e escreve).
 
 > **Neste computador a conexão já está feita** (o `DATABASE_URL` já está no `backend/.env`). Os passos abaixo
@@ -155,8 +161,8 @@ Abra `http://localhost:8080`. No topo do Dashboard há um indicador de conexão:
 **Testes:**
 
 ```bash
-cd backend && pip install -r requirements-dev.txt && pytest      # 174 testes (inclui OCPP e MODBUS de verdade, locais; leva ~2-3 min)
-cd goodwe-grid-smart && npm test                                 # 86 testes
+cd backend && pip install -r requirements-dev.txt && pytest      # 186 testes (inclui OCPP e MODBUS de verdade, locais; leva ~2-3 min)
+cd goodwe-grid-smart && npm test                                 # 93 testes
 ```
 
 Os testes do backend rodam em SQLite em memória e **desligam** simuladores, pagamento e IA por conta própria
@@ -320,10 +326,11 @@ provedor real, escreve-se uma classe nova e registra-se em `PROVIDERS`.
 | `app/routers/goodwe.py` | `/goodwe/status`, `/plants`, `/devices`, `/logs`. |
 | `app/routers/events.py`, `ops.py` | Eventos de sessão para a tela de logs; peak shaving; `/ops/meter` (leitura do medidor MODBUS). |
 | `app/routers/ai_assistant.py` | Assistente: usa a IA (Gemini) quando há chave e login; senão responde por regras sobre dados do banco. |
-| `app/routers/users.py`, `vehicles.py`, `health.py` | Usuários/frotas (operador), veículos do motorista, `/health` (mostra o motor do banco). |
+| `app/routers/users.py`, `vehicles.py`, `health.py` | Usuários/frotas (operador), veículos do motorista, pontuação do motorista (`/users/me/loyalty`), `/health` (mostra o motor do banco). |
 | `app/services/session_fsm.py` | **Máquina de estados**: `S = A·B·C + M` (potência) e `T = A·B·C·D + M` (trava). |
 | `app/services/forecast.py` | **Modelo de previsão**: treina com o CSV, prevê ocupação por dia/hora, alerta de saturação, guarda versões em `forecast_models`. |
-| `app/services/pricing.py` | Preço R$/kWh: usa o modelo (`1,10 + 0,90 × ocupação`, com correção pela carga real); curva horária como reserva; curvas P1/P2. |
+| `app/services/pricing.py` | Preço R$/kWh: usa o modelo (`1,10 + 0,90 × ocupação`, com correção pela carga real); curva horária como reserva; curvas P1/P2. Também soma tempo de uso, acréscimo por modo e ociosidade, com teto por kWh (`breakdown()` — ver `docs/TARIFA_TEMPO_E_OCIOSIDADE.md`). |
+| `app/services/loyalty.py` | Pontuação do motorista: pontos por kWh + bônus por bater a meta semanal, com faixas (só visual — ver `docs/PONTUACAO_FIDELIDADE.md`). |
 | `app/services/session_ops.py` | Operações da sessão (RFID, cabo, medidor, encerrar) usadas **tanto pelo app (REST) quanto pelo carregador (OCPP)**. |
 | `app/services/payments.py` | Provedor de pagamento trocável (hoje `sandbox`). |
 | `app/services/ocpp_service.py`, `ocpp_csms.py` | Servidor OCPP 1.6J: tratamento de cada mensagem e conexão dos carregadores. |
@@ -366,8 +373,10 @@ provedor real, escreve-se uma classe nova e registra-se em `PROVIDERS`.
 ### 7.3 `supabase/`
 
 `migrations/` — em ordem: `20260918000000_init_chargegrid.sql` (tabelas e RLS), `20260920000000_single_site.sql`
-(local único), `20260920000100_ai_pricing.sql` (modelo e preço) e `20260920000200_ocpp_messages.sql` (mensagens
-OCPP) e `20260921000000_commercial_only.sql` (o banco só aceita estação comercial). Para recriar em outro projeto, rode esses SQLs, nessa ordem, no **SQL Editor** do Supabase.
+(local único), `20260920000100_ai_pricing.sql` (modelo e preço), `20260920000200_ocpp_messages.sql` (mensagens
+OCPP), `20260921000000_commercial_only.sql` (o banco só aceita estação comercial) e
+`20260922000000_time_power_tariff.sql` (tarifa por tempo/potência/ociosidade — só adiciona colunas).
+Para recriar em outro projeto, rode esses SQLs, nessa ordem, no **SQL Editor** do Supabase.
 
 ### 7.4 `frontend/`
 
@@ -385,6 +394,8 @@ Primeira versão do frontend (rotas `/operador` e `/app`). Não é mais o princi
 | 3. Adaptador GoodWe (leitura, logs, erros) | `services/goodwe_adapter.py`, `goodwe_service.py`, `integration_log.py` |
 | 4. Preço/kWh, pagamento sandbox, comprovante, dashboard | `services/pricing.py`, `services/payments.py`, `routers/sessions.py` (`pay`, `receipt`), `routers/billing.py`, `DashboardBilling.tsx` |
 | 5. IA e protocolos abertos *(proposta nova, ver `docs/ETAPA_5_PROPOSTA.md`)* | `services/forecast.py`, `ocpp_service.py`, `ocpp_csms.py`, `virtual_charger.py`, `modbus_meter.py`, login em `routers/auth.py` |
+| 5.1 Tarifa por tempo/potência/ociosidade *(extensão aprovada)* | `services/pricing.py:breakdown()`, `docs/TARIFA_TEMPO_E_OCIOSIDADE.md` |
+| 5.2 Pontuação de fidelidade *(extensão aprovada, só visual)* | `services/loyalty.py`, `docs/PONTUACAO_FIDELIDADE.md` |
 | Riscos: segredos só no backend | seção 2; `security.py`; CORS restrito |
 | Riscos: real × simulado × futuro | campo `origem` + selo "Dados simulados" |
 | Riscos: números de série | `mask_serial()` |

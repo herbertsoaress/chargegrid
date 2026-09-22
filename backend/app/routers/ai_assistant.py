@@ -23,7 +23,7 @@ from app.config import settings
 from app.services.goodwe_adapter import get_adapter
 from app.services.integration_log import log_integration
 from app.services.llm import LLMError, allow_llm_call, ask_llm, build_context
-from app.services.simulator import live_energy_and_amount
+from app.services.pricing import live_energy_and_amount
 
 logger = logging.getLogger(__name__)
 
@@ -91,7 +91,8 @@ def _rule_based_answer(category: str, db: DbSession, user: User | None) -> Assis
                 if session.ended_at:
                     answer = (
                         f"Sua ultima sessao (#{session.id}) ja foi encerrada: {energy:.2f} kWh entregues, "
-                        f"total de R$ {amount:.2f} (tarifa de R$ {session.price_per_kwh_snapshot:.2f}/kWh)."
+                        f"total de R$ {amount:.2f} (energia a R$ {session.price_per_kwh_snapshot:.2f}/kWh, "
+                        "mais tempo de uso e eventual ociosidade)."
                     )
                 elif session.power_released:
                     answer = (

@@ -45,7 +45,6 @@ from app.services.session_ops import SessionOpError
 from app.services import forecast, payments, pricing
 from app.services.simulator import (
     DEFAULT_START_PCT,
-    live_energy_and_amount,
     nominal_power_kw,
     simulated_energy_kwh,
     soc_from_energy,
@@ -125,6 +124,8 @@ def create_session(
     now = utcnow()
     # Preco do kWh travado na abertura: modelo de previsao + carga real da rede (services/pricing.py)
     quote = pricing.quote(now, live_occupancy=forecast.live_occupancy(db))
+    # Tarifas de tempo/potencia/ociosidade tambem travadas na abertura (nao mudam com a sessao aberta)
+    tariff = pricing.tariff_snapshot(payload.mode)
     session = ChargingSession(
         user_id=user.id,
         vehicle_id=payload.vehicle_id,
@@ -137,6 +138,11 @@ def create_session(
         price_per_kwh_snapshot=quote.price,
         price_source=quote.source,
         price_occupancy=quote.occupancy,
+        mode_surcharge_snapshot=tariff.mode_surcharge,
+        time_rate_snapshot=tariff.time_rate_per_minute,
+        idle_rate_snapshot=tariff.idle_rate_per_minute,
+        idle_grace_minutes_snapshot=tariff.idle_grace_minutes,
+        price_cap_per_kwh_snapshot=tariff.price_cap_per_kwh,
     )
     charger.status = ChargerStatus.ocupado
     db.add(session)
@@ -151,6 +157,8 @@ def create_session(
             "price_per_kwh": quote.price,
             "price_source": quote.source,
             "occupancy": quote.occupancy,
+            "mode_surcharge_per_kwh": tariff.mode_surcharge,
+            "time_rate_per_minute": tariff.time_rate_per_minute,
         },
     )
     db.commit()
@@ -273,7 +281,11 @@ def pay_session(
         session.energy_kwh = simulated_energy_kwh(session)
         session.current_power_kw = nominal_power_kw(session)
         session.current_pct = soc_from_energy(session.energy_kwh)
-    amount_due = round(session.energy_kwh * session.price_per_kwh_snapshot, 2)
+        session_ops.mark_full_if_needed(session, utcnow())
+    # Valor cobrado agora: energia (preco do modelo + acrescimo do modo) + tempo de uso + ociosidade
+    # ate este instante, com o teto por kWh. Se a energia final mudar depois (medidor ainda a
+    # caminho), o encerramento acerta o valor (services/session_ops.py: _settle_final_amount).
+    amount_due = pricing.breakdown(session).total
     session.amount_due = amount_due
 
     # O provedor (hoje o sandbox: aprovacao simulada, sem cobranca real) decide o resultado.
@@ -326,7 +338,7 @@ def get_receipt(session_id: int, db: DbSession = Depends(get_db), user: User = D
     payment = next((p for p in session.payments if p.status == PaymentStatus.aprovado), None)
     if payment is None:
         raise HTTPException(status_code=409, detail="Sessao ainda sem pagamento aprovado: nao ha comprovante")
-    energy, amount = live_energy_and_amount(session)
+    b = pricing.breakdown(session, session.ended_at)
     provider = payments.get_provider()
     return ReceiptOut(
         receipt_number=receipt_number(session.id, payment.created_at),
@@ -336,12 +348,23 @@ def get_receipt(session_id: int, db: DbSession = Depends(get_db), user: User = D
         mode=session.mode,
         started_at=session.started_at,
         ended_at=session.ended_at,
-        energy_kwh=energy,
+        energy_kwh=b.energy_kwh,
         price_per_kwh=session.price_per_kwh_snapshot,
         price_source=session.price_source,
         price_occupancy=session.price_occupancy,
         price_note=pricing.price_note(session.price_source, session.price_occupancy),
-        amount=amount,
+        mode_surcharge_per_kwh=session.mode_surcharge_snapshot,
+        energy_price_per_kwh=b.energy_price_per_kwh,
+        energy_amount=b.energy_amount,
+        minutes_charging=b.minutes_charging,
+        time_rate_per_minute=b.time_rate_per_minute,
+        time_amount=b.time_amount,
+        minutes_idle=b.minutes_idle,
+        idle_rate_per_minute=b.idle_rate_per_minute,
+        idle_amount=b.idle_amount,
+        price_capped=b.capped,
+        price_cap_per_kwh=b.price_cap_per_kwh,
+        amount=b.total,
         payment=PaymentOut.model_validate(payment),
         origem=provider.name,
         aviso=(

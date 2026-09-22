@@ -7,7 +7,7 @@ Assim os DOIS caminhos passam exatamente pelas mesmas regras da maquina de estad
 from sqlalchemy.orm import Session as DbSession
 
 from app.models import ChargerStatus, ChargingSession, PaymentStatus, SessionEvent
-from app.services import payments, session_fsm
+from app.services import payments, pricing, session_fsm
 from app.services.simulator import soc_from_energy
 from app.timeutil import utcnow
 
@@ -55,6 +55,13 @@ def connect_cable(db: DbSession, session: ChargingSession, source: str = "rest")
     log_event(db, session, result.event_type, result.payload, source)
 
 
+def mark_full_if_needed(session: ChargingSession, at) -> None:
+    """Registra o instante em que a bateria chegou a 100% pela 1a vez (para contar ociosidade).
+    Chamado sempre que o SoC e atualizado -- pela telemetria (OCPP ou app) ou no encerramento."""
+    if session.full_at is None and session.current_pct >= 100.0:
+        session.full_at = at
+
+
 def report_meter(
     db: DbSession,
     session: ChargingSession,
@@ -75,6 +82,7 @@ def report_meter(
     session.energy_kwh = round(max(energy_kwh, session.energy_kwh), 3)  # medidor nunca anda para tras
     session.current_power_kw = power_kw
     session.current_pct = soc_pct if soc_pct is not None else soc_from_energy(session.energy_kwh)
+    mark_full_if_needed(session, now)
     if first_reading or (now - session.last_meter_at).total_seconds() >= METER_EVENT_MIN_INTERVAL_S:
         log_event(
             db,
@@ -96,17 +104,19 @@ def stop(db: DbSession, session: ChargingSession, source: str = "rest") -> None:
     session.ended_at = utcnow()
     session.current_power_kw = 0.0
     session.charger.status = ChargerStatus.livre
+    mark_full_if_needed(session, session.ended_at)  # se a ultima leitura ja marcava 100% mas ninguem registrou
     _settle_final_amount(db, session, source)
     log_event(db, session, "session_stopped", {"energy_kwh": session.energy_kwh, "amount_due": session.amount_due}, source)
 
 
 def _settle_final_amount(db: DbSession, session: ChargingSession, source: str) -> None:
-    """Confere o valor com a energia FINAL. O pagamento e calculado com a energia do instante em que foi
-    feito; uma leitura do medidor que ainda estava a caminho pode aumentar a energia logo depois (o cabo
-    so trava/destrava com o pagamento, mas o carregador segue medindo ate o StopTransaction)."""
+    """Confere o valor com a energia e o tempo FINAIS (energia + tempo de uso + ociosidade, com o
+    teto por kWh). O pagamento e calculado no instante em que foi feito; uma leitura do medidor que
+    ainda estava a caminho, ou o tempo parado apos a bateria encher, pode mudar o valor depois (o
+    cabo so trava/destrava com o pagamento, mas o carregador segue medindo ate o StopTransaction)."""
     if not session.payment_finalized:  # encerramento por bypass de manutencao: nada foi cobrado
         return
-    final = round(session.energy_kwh * session.price_per_kwh_snapshot, 2)
+    final = pricing.breakdown(session, session.ended_at).total
     if final == session.amount_due:
         return
     previous = session.amount_due

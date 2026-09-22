@@ -92,6 +92,14 @@ O relatório comparou modelos no notebook do chatbot (LangGraph). No app usamos 
 **"Como escala para vários locais?"**
 Hoje é um local (o cenário de referência). Estações e carregadores já são tabelas; múltiplos locais exigem parametrizar limite e carga base por estação. Está na lista de próximos passos.
 
+**"O preço muda por modo de recarga? E o que é a pontuação?"**
+Duas extensões do próprio grupo, além do que a GoodWe pede (`docs/ETAPA_5_PROPOSTA.md`, itens 5.8 e 5.9).
+O valor da sessão soma o preço do kWh (do modelo) mais um acréscimo por modo (potência maior custa mais)
+e uma tarifa por tempo de uso; se o carro fica parado depois de carregado, soma uma taxa de ociosidade,
+com um teto por kWh entregue (`docs/TARIFA_TEMPO_E_OCIOSIDADE.md`). A pontuação é 10 pontos por kWh
+carregado mais um bônus por bater a meta semanal, com faixas Bronze/Prata/Ouro — hoje é só visual, sem
+desconto (`docs/PONTUACAO_FIDELIDADE.md`).
+
 ## Próximos passos (para fechar a apresentação)
 1. Conectar o carregador físico da FIAP (mesmo protocolo) e usar o mapa de registradores real do medidor.
 2. Credenciais da GoodWe OpenAPI para trocar o adaptador simulado pelo real.

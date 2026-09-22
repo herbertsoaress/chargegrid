@@ -46,11 +46,3 @@ def simulated_energy_kwh(session: ChargingSession, now: datetime | None = None) 
 
 def soc_from_energy(energy_kwh: float, start_pct: float = DEFAULT_START_PCT) -> float:
     return round(min(100.0, start_pct + energy_kwh / BATTERY_KWH * 100), 1)
-
-
-def live_energy_and_amount(session: ChargingSession, now: datetime | None = None) -> tuple[float, float]:
-    """Energia e valor "ate agora" para exibir na tela ao vivo (sem fechar a sessao)."""
-    if session.ended_at or session.payment_finalized:
-        return session.energy_kwh, session.amount_due
-    energy = session.energy_kwh if session.last_meter_at else simulated_energy_kwh(session, now)
-    return energy, round(energy * session.price_per_kwh_snapshot, 2)
