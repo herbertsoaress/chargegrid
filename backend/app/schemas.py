@@ -217,6 +217,34 @@ class ReceiptOut(BaseModel):
     aviso: str = "Comprovante de teste (pagamento sandbox), sem valor fiscal."
 
 
+class ScheduleBlockOut(BaseModel):
+    """Um bloco de 15 min do plano do Energy Autopilot."""
+
+    start: UTCDatetime
+    hour: float
+    occupancy: float
+    solar_kw: float
+    saturated: bool
+    charging: bool
+    reason: str  # "preco_baixo" | "solar" | "meta_em_risco" | "pico_evitado" | "ocioso"
+
+
+class ScheduleOut(BaseModel):
+    """Plano de recarga do Energy Autopilot (extensao aprovada, so para modos com horario de saida
+    informado -- ver docs/ENERGY_AUTOPILOT.md). `has_plan=false` = sessao sem agenda (modo Rapido,
+    sem horario de saida, ou bateria ja perto da meta): carrega na potencia nominal do modo."""
+
+    has_plan: bool
+    departure: UTCDatetime | None = None
+    energy_needed_kwh: float | None = None
+    max_power_kw: float | None = None
+    on_track: bool | None = None
+    peak_avoided: bool | None = None
+    solar_kwh: float | None = None
+    idle_savings_rs: float | None = None
+    blocks: list[ScheduleBlockOut] = []
+
+
 class InvoiceOut(BaseModel):
     receipt_number: str
     session_id: int

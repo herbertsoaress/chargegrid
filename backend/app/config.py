@@ -58,6 +58,10 @@ class Settings(BaseSettings):
     # com a distribuidora e carga base do predio sem os carros. O que sobra e a capacidade para EVs.
     site_contracted_kw: float = 200.0
     site_base_load_kw: float = 120.0
+    # Capacidade de pico da usina solar do local (kW), meio-dia. SIMULADA (nao ha telemetria real
+    # de inversor solar disponivel). Fonte unica para o balanceamento e para o agendamento de
+    # recarga (services/solar.py) -- ver docs/ENERGY_AUTOPILOT.md.
+    solar_capacity_kw: float = 18.0
 
     # Modelo de previsao de demanda / preco dinamico (services/forecast.py e pricing.py).
     # Ocupacao da capacidade para carros num dia util ao meio-dia (0 a 1). E uma SUPOSICAO de cenario:

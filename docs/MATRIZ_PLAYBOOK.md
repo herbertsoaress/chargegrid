@@ -21,7 +21,7 @@ Legenda: ✅ atendido · 🟡 atendido em parte ou simulado (dito na tela) · �
 
 | Pilar | Ação pedida | O que existe | Status |
 |---|---|---|---|
-| **Controle de demanda** | gerenciar a potência entregue | limite de 200 kW, prédio de 120 kW, capacidade de 80 kW para carros; balanceamento usando a leitura do medidor; alerta de saturação prevista; peak shaving com auditoria | 🟡 simulado |
+| **Controle de demanda** | gerenciar a potência entregue | limite de 200 kW, prédio de 120 kW, capacidade de 80 kW para carros; balanceamento usando a leitura do medidor; alerta de saturação prevista; peak shaving com auditoria; **Energy Autopilot** (extensão do grupo): agenda a potência de cada sessão por horário de saída, preço e solar previstos, com meta garantida e pico evitado (`ENERGY_AUTOPILOT.md`) | 🟡 decisão real, equipamento simulado |
 | **Protocolos abertos** | integração via OCPP e MODBUS | servidor OCPP 1.6J validado pelo esquema oficial, carregadores virtuais, log de todas as mensagens; medidor MODBUS TCP com leitor (interoperável com o `pymodbus`) | ✅ protocolo · 🟡 equipamento simulado |
 | **Tarifação e pagamento** | cobrança dinâmica por APIs de pagamento | preço R$ 1,10 a R$ 2,00 gerado pelo modelo, travado na sessão; camada de pagamento com provedor sandbox e recusa/pendência tratadas; troca por provedor real = uma classe | ✅ preço · 🟡 pagamento sandbox |
 | **IA aplicada** | previsão de picos e análise de sessões | modelo calibrado com o CSV do grupo (previsão por hora e dia da semana, preço, alerta), perfil de "sessão típica" por classe de potência, assistente com Gemini | ✅ |

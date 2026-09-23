@@ -357,3 +357,25 @@ O cenário é **um único local comercial** (FIAP Paulista, 8 carregadores).
 - **Fluxo alternativo:** Motorista novo, sem sessões encerradas: 0 pontos, faixa Bronze.
 - **Resultado esperado:** O motorista tem um motivo a mais para voltar ao mesmo local, sem que isso
   mude o preço que ele paga.
+
+### UC-23 — Energy Autopilot: recarga agendada por horário de saída
+- **Ator:** Motorista e Operador
+- **Pré-condição:** Motorista informa horário de saída, meta de bateria e um modo diferente de
+  Rápido; backend com `OCPP_SIMULATOR=true` (extensão aprovada — ver `docs/ENERGY_AUTOPILOT.md`)
+- **Fluxo principal:**
+  1. Ao configurar a recarga (UC-12), a tela avisa que o modo escolhido vai seguir um plano até o
+     horário de saída.
+  2. O backend monta um plano por blocos de 15 min, olhando o preço previsto (mesmo modelo do
+     preço) e a geração solar prevista (simulada) — Econômico e Sustentável evitam horários de pico
+     previsto; Garantido também tenta, mas usa o pico se precisar para não perder o prazo.
+  3. Na tela de recarga (UC-13), um cartão mostra os blocos do plano e os selos: meta garantida (ou
+     em risco), pico evitado, kWh de energia solar aproveitada, e R$ de ociosidade evitada (quando
+     o Garantido termina perto do horário de saída, em vez de cedo demais e ficando parado).
+  4. O carregador virtual segue o plano de verdade: a potência muda ao longo da sessão, acompanhada
+     por um relógio acelerado (o mesmo fator do OCPP simulado), para o plano inteiro caber em poucos
+     minutos de demonstração.
+- **Fluxo alternativo:** Sem horário de saída, ou no modo Rápido, não há plano — a sessão carrega na
+  potência fixa do modo, como antes desta extensão. Se o tempo até a saída não for suficiente nem
+  usando os horários de pico, o Garantido avisa que a meta ficou em risco.
+- **Resultado esperado:** O motorista vê o sistema decidindo *quando* carregar, não só cobrando por
+  isso — e o operador vê o pico previsto sendo evitado sem precisar agir manualmente.

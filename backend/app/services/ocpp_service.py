@@ -29,7 +29,7 @@ from app.models import (
     Role,
     User,
 )
-from app.services import session_ops
+from app.services import scheduler, session_ops
 from app.services.integration_log import log_integration
 from app.services.session_ops import SessionOpError
 from app.services.simulator import nominal_power_kw
@@ -85,6 +85,9 @@ def charger_snapshot(db: DbSession, code: str) -> dict | None:
             "payment_finalized": session.payment_finalized,
             "nominal_power_kw": nominal_power_kw(session),
             "current_pct": session.current_pct,
+            # Energy Autopilot (extensao aprovada): potencia que o PLANO decide para agora, se
+            # houver um (modo com horario de saida informado). None = sem agenda, usa a nominal.
+            "planned_power_kw": scheduler.current_power_kw(scheduler.build_plan(session, db), utcnow(), session),
         },
     }
 

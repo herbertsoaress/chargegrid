@@ -17,7 +17,7 @@ Estabelecimentos com carregadores abertos ao público ou a clientes (varejo, sho
 O playbook da GoodWe aponta a **REN ANEEL nº 1.000/2021**: a exploração comercial da recarga é livre (o preço pode ser negociado, o que torna a **tarifação dinâmica** legítima) e há a exigência de comunicação prévia e **padrões abertos** (o que justifica **OCPP**). *Ressalva: conferir no texto oficial antes de citar artigos.*
 
 ### 4. A solução em 4 pilares (1 min)
-1. **Controle de demanda:** balanceamento de carga com limite contratado e alerta de saturação prevista.
+1. **Controle de demanda:** balanceamento de carga com limite contratado, alerta de saturação prevista e o **Energy Autopilot** — cada sessão com horário de saída ganha um plano de potência que garante a meta, evita o pico previsto e aproveita a energia solar da usina do local.
 2. **Protocolos abertos:** servidor OCPP 1.6J e leitura de medidor por MODBUS TCP.
 3. **Tarifação e pagamento:** preço do kWh calculado pelo modelo, travado na sessão, com comprovante que explica o motivo.
 4. **IA aplicada:** modelo de previsão de demanda calibrado com dados reais do grupo, que alimenta o preço; assistente conversacional (Gemini) como interface.
@@ -99,6 +99,14 @@ e uma tarifa por tempo de uso; se o carro fica parado depois de carregado, soma 
 com um teto por kWh entregue (`docs/TARIFA_TEMPO_E_OCIOSIDADE.md`). A pontuação é 10 pontos por kWh
 carregado mais um bônus por bater a meta semanal, com faixas Bronze/Prata/Ouro — hoje é só visual, sem
 desconto (`docs/PONTUACAO_FIDELIDADE.md`).
+
+**"O Econômico/Sustentável/Garantido de verdade fazem o que dizem?"**
+Agora sim (item 5.10 da Etapa 5, `docs/ENERGY_AUTOPILOT.md`). Com horário de saída informado, o
+Garantido monta um plano de potência que garante a meta, evitando o horário de pico previsto sempre
+que der; se não der, usa o pico mesmo assim para não perder o prazo. Econômico e Sustentável fazem o
+mesmo, mas sem essa garantia — preferem não bater a meta a carregar caro. A "economia" que aparece é
+real (ociosidade evitada, que É cobrada a menos), não uma promessa de preço por kWh mais baixo — o
+preço da sessão já está travado desde o início.
 
 ## Próximos passos (para fechar a apresentação)
 1. Conectar o carregador físico da FIAP (mesmo protocolo) e usar o mapa de registradores real do medidor.

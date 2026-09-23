@@ -106,9 +106,11 @@ def _rule_based_answer(category: str, db: DbSession, user: User | None) -> Assis
                     )
     elif category == "modos":
         answer = (
-            "Rapido: usa a potencia maxima do carregador -- a recarga mais veloz, e tambem a mais cara no "
-            "horario de pico. Economico: cerca de 55% da potencia maxima, para quem nao tem pressa e quer "
-            "economizar. Sustentavel: cerca de 75% da potencia, um meio-termo entre velocidade e eficiencia."
+            "Rapido: sempre na potencia maxima do carregador. Os outros tres, com horario de saida informado, "
+            "seguem um plano (Energy Autopilot): Economico busca os horarios mais baratos, Sustentavel busca "
+            "os horarios com sobra de energia solar, e Garantido faz o mesmo mas garante a meta ate a saida "
+            "mesmo que precise usar um horario caro no fim. Sem horario de saida, os tres usam uma potencia "
+            "fixa mais baixa que o Rapido."
         )
     elif category == "manutencao":
         in_bypass = (

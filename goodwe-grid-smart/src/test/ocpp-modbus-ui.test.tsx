@@ -36,6 +36,7 @@ let messages: unknown[] = [];
 let ocppStatus = { enabled: true, auth_required: false, simulator: true, protocol: "OCPP 1.6J", connected: [] as unknown[] };
 let meter: Record<string, unknown> = {};
 let sessionState: Record<string, unknown> = {};
+let scheduleState: Record<string, unknown> = { has_plan: false };
 let ocppSimulator = true;
 let calls: string[] = [];
 let createFails = false;
@@ -89,6 +90,7 @@ function installFetch() {
         return reply(200, { id: 11, charger_id: 2, charger_code: "CG-002", charger_name: "FIAP #2", mode: "economico", price_per_kwh_snapshot: 1.4 });
       }
       if (path === "/sessions/11" && method === "GET") return reply(200, sessionState);
+      if (path === "/sessions/11/schedule") return reply(200, scheduleState);
       if (path.endsWith("/pay")) return reply(200, { id: 1, method: "pix", status: "aprovado", amount: 1, provider_ref: "SANDBOX-PIX-11" });
       if (path.endsWith("/receipt"))
         return reply(200, { receipt_number: "CG-2026-000011", session_id: 11, energy_kwh: 1.2, price_per_kwh: 1.4, amount: 1.68,
@@ -113,6 +115,11 @@ beforeEach(() => {
   sessionState = {
     id: 11, power_released: false, energy_kwh: 0, current_power_kw: 0, current_pct: 28, price_per_kwh_snapshot: 1.4,
     charger_code: "CG-002", charger_name: "FIAP #2", mode: "economico",
+  };
+  scheduleState = {
+    has_plan: true, departure: "2026-09-20T21:30:00Z", energy_needed_kwh: 16.8, max_power_kw: 22,
+    on_track: true, peak_avoided: true, solar_kwh: 3.2, idle_savings_rs: 0,
+    blocks: [{ start: "2026-09-20T18:00:00Z", hour: 15, occupancy: 0.3, solar_kw: 2, saturated: false, charging: true, reason: "preco_baixo" }],
   };
   installFetch();
 });
@@ -281,6 +288,20 @@ describe("Modo OCPP no provider (carregador virtual conduz a recarga)", () => {
     expect(charger()).toMatchObject({ pct: 40, currentPower: 7.4, sessionKwh: 1.2 });
     expect(charger().etaMin).toBe(Math.round(((60 * 0.6) / 7.4) * 60)); // energia restante / potencia
     await waitFor(() => expect(live.activeSessions[0]?.kwh).toBe(1.2), { timeout: 6000 });
+    // Energy Autopilot (extensao aprovada): modo != rapido busca o plano tambem
+    await waitFor(() => expect(charger().schedule?.has_plan).toBe(true), { timeout: 6000 });
+    expect(charger().schedule).toMatchObject({ on_track: true, peak_avoided: true, solar_kwh: 3.2 });
+  }, 15000);
+
+  it("modo Rapido nao busca plano (nunca tem agenda)", async () => {
+    sessionState = { ...sessionState, mode: "rapido" };
+    await start();
+    act(() => live.startSession("CG-002", { ...sessionInput, priority: "rapido" }));
+    await waitFor(() => expect(live.persistedSessionIds["CG-002"]).toBe(11));
+    await new Promise((r) => setTimeout(r, 2500));
+    sessionState = { ...sessionState, power_released: true, energy_kwh: 1.2, current_power_kw: 22, current_pct: 40 };
+    await waitFor(() => expect(charger().status).toBe("charging"), { timeout: 6000 });
+    expect(calls).not.toContain("GET /sessions/11/schedule");
   }, 15000);
 
   it("ao encerrar so paga e para: nao manda leitura de medidor pelo navegador", async () => {

@@ -95,6 +95,30 @@ export interface ApiReceipt {
   aviso: string;
 }
 
+export interface ApiScheduleBlock {
+  start: string;
+  hour: number;
+  occupancy: number;
+  solar_kw: number;
+  saturated: boolean;
+  charging: boolean;
+  reason: "preco_baixo" | "solar" | "meta_em_risco" | "pico_evitado" | "ocioso";
+}
+
+/** Plano do Energy Autopilot (extensao aprovada -- ver docs/ENERGY_AUTOPILOT.md). `has_plan=false`
+ * = sessao sem agenda (modo Rapido, sem horario de saida, ou bateria ja perto da meta). */
+export interface ApiSchedule {
+  has_plan: boolean;
+  departure: string | null;
+  energy_needed_kwh: number | null;
+  max_power_kw: number | null;
+  on_track: boolean | null;
+  peak_avoided: boolean | null;
+  solar_kwh: number | null;
+  idle_savings_rs: number | null;
+  blocks: ApiScheduleBlock[];
+}
+
 export interface ApiLoyalty {
   points: number;
   tier: string;

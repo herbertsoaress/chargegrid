@@ -13,6 +13,7 @@ import type {
   ApiInvoice,
   ApiLoyalty,
   ApiMe,
+  ApiSchedule,
   ApiMeter,
   ApiMode,
   ApiModelDetail,
@@ -102,6 +103,7 @@ export const backend = {
     post<ApiPayment>(`/sessions/${id}/pay`, token, { method }),
   stop: (token: string, id: number) => post<ApiSession>(`/sessions/${id}/stop`, token),
   receipt: (token: string, id: number) => request<ApiReceipt>(`/sessions/${id}/receipt`, { token }),
+  schedule: (token: string, id: number) => request<ApiSchedule>(`/sessions/${id}/schedule`, { token }),
   completedSessions: (token: string) => request<ApiSession[]>("/sessions?status=completed&limit=50", { token }),
 
   // assistente (Gemini no backend; cai para regras sem chave/login/limite)

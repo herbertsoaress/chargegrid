@@ -11,6 +11,7 @@ telemetria real de inversor solar disponivel); o consumo dos carregadores
 import math
 
 from app.config import settings
+from app.services import solar
 
 # Cenario de referencia (config.py): potencia contratada e carga base do predio.
 GRID_IMPORT_LIMIT_KW = settings.site_contracted_kw
@@ -22,7 +23,7 @@ def balancing_snapshot(
 ) -> dict:
     """`building_load_kw` vem do medidor MODBUS quando ele esta ligado ("modbus"); senao usa o cenario de referencia."""
     building_kw = BUILDING_BASELINE_LOAD_KW if building_load_kw is None else round(building_load_kw, 2)
-    solar_kw = round(max(0.0, 18 * math.sin(math.pi * hour / 24)), 2)
+    solar_kw = solar.solar_kw(hour)  # mesma curva usada pelo agendamento de recarga (Energy Autopilot)
     battery_soc_percent = round(55 + 30 * math.sin(math.pi * hour / 12), 1)
 
     total_demand_kw = round(building_kw + ev_load_kw, 2)

@@ -41,10 +41,16 @@ class Transaction:
     session_id: int
     transaction_id: int
     started_at: float  # monotonic
-    power_kw: float
+    power_kw: float  # potencia nominal do modo -- usada quando NAO ha plano (Energy Autopilot)
     start_soc: float
     last_meter_at: float
     energy_wh: float = 0.0
+    # Energy Autopilot (extensao aprovada): quando a sessao tem um plano (modo com horario de saida
+    # informado), a potencia muda de bloco em bloco, entao a energia e acumulada incrementalmente a
+    # cada passo em vez de vir de uma formula fechada (potencia constante x tempo).
+    planned_energy_wh: float = 0.0
+    last_plan_check_at: float | None = None  # monotonic; None = ainda nao integrou nenhum passo
+    current_planned_power_kw: float | None = None  # None = sem plano; usa self.power_kw como antes
 
 
 class VirtualCharger:
@@ -121,9 +127,25 @@ class VirtualCharger:
                 if now >= self.retry_start_after:
                     await self._begin(cp, session, now)
 
-        # 3) transacao em andamento: leitura periodica do medidor
+        # 3) transacao em andamento: integra a potencia do plano (se houver) e le o medidor
+        if self.tx:
+            self._integrate_plan(session, now)
         if self.tx and now - self.tx.last_meter_at >= self.meter_interval_s:
             await self._meter(cp, now)
+
+    def _integrate_plan(self, session: dict | None, now: float) -> None:
+        """Energy Autopilot: se a sessao tem um plano, acumula a energia com a potencia ATUAL do
+        bloco (que pode ter mudado desde o ultimo passo). Sem plano, nao faz nada -- `_reading()`
+        continua usando a formula fechada (potencia nominal x tempo), como antes desta extensao."""
+        tx = self.tx
+        assert tx is not None
+        planned = session.get("planned_power_kw") if session else None
+        if tx.last_plan_check_at is not None and tx.current_planned_power_kw is not None:
+            dt_virtual_h = max(0.0, now - tx.last_plan_check_at) * self.speedup / 3600
+            room_kwh = max(0.0, (100 - tx.start_soc) / 100 * BATTERY_KWH - tx.planned_energy_wh / 1000)
+            tx.planned_energy_wh += min(tx.current_planned_power_kw * dt_virtual_h, room_kwh) * 1000
+        tx.last_plan_check_at = now
+        tx.current_planned_power_kw = planned
 
     async def _status(self, cp, status: str) -> None:
         error = "OtherError" if status == "Unavailable" else "NoError"
@@ -154,15 +176,25 @@ class VirtualCharger:
         await self._status(cp, "Charging")
 
     def _reading(self, now: float) -> tuple[float, float, float]:
-        """(energia Wh, potencia W, SoC %) da recarga simulada: potencia x tempo acelerado, limitada a bateria cheia."""
+        """(energia Wh, potencia W, SoC %) da recarga simulada, limitada a bateria cheia.
+
+        Sem plano (Rapido, ou sem horario de saida): formula fechada, potencia constante x tempo
+        acelerado -- como sempre foi. Com plano (Energy Autopilot): a energia ja foi acumulada
+        incrementalmente em `_integrate_plan()`, porque a potencia muda de bloco em bloco."""
         assert self.tx is not None
-        elapsed_sim_s = (now - self.tx.started_at) * self.speedup
-        energy_kwh = self.tx.power_kw * elapsed_sim_s / 3600
         room_kwh = max(0.0, (100 - self.tx.start_soc) / 100 * BATTERY_KWH)
-        full = energy_kwh >= room_kwh
-        energy_kwh = min(energy_kwh, room_kwh)
+        if self.tx.current_planned_power_kw is not None:
+            energy_kwh = min(self.tx.planned_energy_wh / 1000, room_kwh)
+            full = energy_kwh >= room_kwh
+            power_kw_now = self.tx.current_planned_power_kw
+        else:
+            elapsed_sim_s = (now - self.tx.started_at) * self.speedup
+            energy_kwh = self.tx.power_kw * elapsed_sim_s / 3600
+            full = energy_kwh >= room_kwh
+            energy_kwh = min(energy_kwh, room_kwh)
+            power_kw_now = self.tx.power_kw
         soc = min(100.0, self.tx.start_soc + energy_kwh / BATTERY_KWH * 100)
-        return energy_kwh * 1000, 0.0 if full else self.tx.power_kw * 1000, soc
+        return energy_kwh * 1000, 0.0 if full else power_kw_now * 1000, soc
 
     async def _meter(self, cp, now: float) -> None:
         assert self.tx is not None

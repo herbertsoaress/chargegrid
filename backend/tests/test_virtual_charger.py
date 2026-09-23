@@ -247,3 +247,45 @@ def test_virtual_charger_runs_a_full_session_over_a_real_websocket(live_server):
                 await asyncio.gather(task, return_exceptions=True)
 
     asyncio.run(scenario())
+
+
+# ---------------- Energy Autopilot: potencia variavel por plano (services/scheduler.py) ----------------
+def test_planned_power_varies_the_delivered_power_mid_session():
+    """Com um plano (Energy Autopilot), a energia e acumulada incrementalmente: a potencia pode
+    mudar de bloco em bloco, ao contrario da sessao sem plano (formula fechada, potencia constante)."""
+    charger, cp = make(), FakeCp()
+    run(charger.step(cp, snapshot(paid_session()), 100.0))  # comeca a recarga em t=100
+    cp.calls.clear()
+
+    run(charger.step(cp, snapshot(paid_session(rfid_ok=True, power_released=True, planned_power_kw=10.0)), 101.0))
+    assert "MeterValues" not in cp.names  # ainda nao passou o intervalo (2 s)
+
+    run(charger.step(cp, snapshot(paid_session(rfid_ok=True, power_released=True, planned_power_kw=10.0)), 103.0))
+    first = next(c for c in cp.calls if type(c).__name__ == "MeterValues")
+    samples = {s["measurand"]: float(s["value"]) for s in first.meter_value[0]["sampled_value"]}
+    # 10 kW por 2 s reais x 60 = 120 s simulados = 0,3333 kWh
+    assert samples["Energy.Active.Import.Register"] == pytest.approx(333.33, abs=1)
+    assert samples["Power.Active.Import"] == 10000
+    cp.calls.clear()
+
+    # o plano muda a potencia para 20 kW no bloco seguinte
+    run(charger.step(cp, snapshot(paid_session(rfid_ok=True, power_released=True, planned_power_kw=20.0)), 105.0))
+    second = next(c for c in cp.calls if type(c).__name__ == "MeterValues")
+    samples2 = {s["measurand"]: float(s["value"]) for s in second.meter_value[0]["sampled_value"]}
+    # os 2 s anteriores ainda foram a 10 kW (mais 0,3333 kWh); a potencia relatada agora ja e a nova (20 kW)
+    assert samples2["Energy.Active.Import.Register"] == pytest.approx(666.67, abs=1)
+    assert samples2["Power.Active.Import"] == 20000
+
+
+def test_no_plan_keeps_the_old_constant_power_formula():
+    """Sem `planned_power_kw` no snapshot (sessao sem horario de saida, ou modo Rapido), o
+    carregador virtual continua usando a potencia nominal constante, como antes desta extensao."""
+    charger, cp = make(), FakeCp()
+    run(charger.step(cp, snapshot(paid_session()), 100.0))
+    cp.calls.clear()
+    run(charger.step(cp, snapshot(paid_session(rfid_ok=True, power_released=True)), 101.0))
+    run(charger.step(cp, snapshot(paid_session(rfid_ok=True, power_released=True)), 110.0))
+    meter = next(c for c in cp.calls if type(c).__name__ == "MeterValues")
+    samples = {s["measurand"]: float(s["value"]) for s in meter.meter_value[0]["sampled_value"]}
+    assert samples["Energy.Active.Import.Register"] == pytest.approx(3667, abs=1)
+    assert samples["Power.Active.Import"] == 22000

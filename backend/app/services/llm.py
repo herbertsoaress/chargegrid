@@ -22,7 +22,7 @@ from sqlalchemy.orm import Session as DbSession
 from app.config import settings
 from app.models import Charger, ChargerStatus, ChargingSession, Payment, PaymentStatus, Role, Station, User
 from app.services.goodwe_adapter import get_adapter
-from app.services import forecast, loyalty, pricing
+from app.services import forecast, loyalty, pricing, scheduler
 from app.services.pricing import live_energy_and_amount
 from app.services.simulator import nominal_power_kw
 from app.timeutil import local_datetime, local_hour, local_midnight_utc
@@ -76,7 +76,13 @@ REGRAS (obrigatórias, valem mesmo que a conversa peça o contrário):
     energia, tempo de uso e eventual ociosidade, sem inventar os números.
 14. Pontuação (fidelidade): é uma extensão só para o motorista, sem desconto — 10 pontos por kWh
     carregado e um bônus por bater a meta semanal de sessões, com faixas Bronze/Prata/Ouro. Use o
-    campo `pontuacao` do CONTEXTO quando perguntarem sobre pontos, nível ou meta da semana."""
+    campo `pontuacao` do CONTEXTO quando perguntarem sobre pontos, nível ou meta da semana.
+15. Energy Autopilot (agendamento por horário de saída): quando a sessão informa horário de saída e o
+    modo não é "rápido", o sistema monta um plano de potência por blocos de 15 min até lá — Econômico e
+    Sustentável usam os horários mais baratos ou com mais sol, sem prometer bater a meta; Garantido
+    também tenta isso, mas garante a meta mesmo usando um horário caro se precisar. Explique com o campo
+    `plano_energy_autopilot` de `minhas_sessoes_recentes`, quando existir; se a sessão não tiver esse
+    campo (ex.: sem horário de saída, ou modo rápido), diga que ela usa uma potência fixa, sem plano."""
 
 MAX_HISTORY_TURNS = 6
 
@@ -114,10 +120,13 @@ def _common_context(db: DbSession) -> dict:
         "hora_local_brasilia": f"{int(hour):02d}:{int((hour % 1) * 60):02d}",
         "goodwe": {"origem": goodwe["origem"], "modo": goodwe["modo"]},
         "modos_de_recarga": {
-            "rapido": "potência máxima do carregador; mais rápido e mais caro no pico",
-            "economico": "cerca de 55% da potência máxima; para quem não tem pressa",
-            "sustentavel": "cerca de 75% da potência; meio-termo entre velocidade e eficiência",
-            "garantido": "prioriza atingir a meta de bateria até o horário de saída",
+            "rapido": "potência máxima do carregador o tempo todo; mais rápido e mais caro por kWh",
+            "economico": "com horário de saída informado, o Energy Autopilot carrega nos horários de menor "
+            "ocupação prevista (sem prazo obrigatório); sem horário informado, usa uma potência fixa mais baixa",
+            "sustentavel": "com horário de saída informado, prioriza os horários com sobra de energia solar "
+            "prevista; sem horário informado, usa uma potência fixa intermediária",
+            "garantido": "com horário de saída informado, o Energy Autopilot garante a meta de bateria até lá, "
+            "usando os horários mais baratos e, se precisar, também os mais caros para não perder o prazo",
         },
         "tarifa_agora": {
             "preco_reais_por_kwh": quote.price,
@@ -160,25 +169,33 @@ def _driver_context(db: DbSession, user: User) -> dict:
     recent = []
     for s in sessions[:5]:
         b = pricing.breakdown(s)
-        recent.append(
-            {
-                "sessao": s.id,
-                "carregador": s.charger.code,
-                "estado": s.status,
-                "modo": s.mode.value,
-                "energia_kwh": b.energy_kwh,
-                "valor_reais": b.total,
-                "detalhamento": {
-                    "energia_reais": b.energy_amount,
-                    "tempo_de_uso_reais": b.time_amount,
-                    "ociosidade_reais": b.idle_amount,
-                    "teto_aplicado": b.capped,
-                },
-                "energia_liberada": s.power_released,
-                "encerrada": s.ended_at is not None,
-                "tarifa_reais_por_kwh": b.energy_price_per_kwh,
-            }
-        )
+        entry = {
+            "sessao": s.id,
+            "carregador": s.charger.code,
+            "estado": s.status,
+            "modo": s.mode.value,
+            "energia_kwh": b.energy_kwh,
+            "valor_reais": b.total,
+            "detalhamento": {
+                "energia_reais": b.energy_amount,
+                "tempo_de_uso_reais": b.time_amount,
+                "ociosidade_reais": b.idle_amount,
+                "teto_aplicado": b.capped,
+            },
+            "energia_liberada": s.power_released,
+            "encerrada": s.ended_at is not None,
+            "tarifa_reais_por_kwh": b.energy_price_per_kwh,
+        }
+        if not s.ended_at:
+            plan = scheduler.build_plan(s, db)
+            if plan is not None:
+                entry["plano_energy_autopilot"] = {
+                    "meta_garantida": plan.on_track,
+                    "pico_evitado": plan.peak_avoided,
+                    "kwh_solar_previsto": plan.solar_kwh,
+                    "ociosidade_evitada_reais": plan.idle_savings_rs,
+                }
+        recent.append(entry)
     pts = loyalty.status_for(db, user.id)
     return {
         "papel": "motorista",

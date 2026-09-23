@@ -173,6 +173,11 @@ export function MobileSessionSetup({ chargerId, onBack, onStarted }: Props) {
             Ocupação prevista da rede: {Math.round(forecast.now.occupancyUsed * 100)}% · {forecast.modelLabel}. O preço fica travado ao iniciar a recarga.
             Quanto mais potente o modo, maior o preço do kWh; quanto mais tempo o carro fica no carregador, mais a tarifa de tempo pesa.
           </p>
+          {mode !== "rapido" && backend.ocppSimulator && (
+            <p className="pt-1 border-t border-white/5 text-goodwe-blue">
+              ⚡ Este modo segue um plano de potência (Energy Autopilot) até {departure}, olhando preço e energia solar previstos — veja o resultado na tela da recarga.
+            </p>
+          )}
         </div>
 
         <button

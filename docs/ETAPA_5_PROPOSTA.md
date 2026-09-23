@@ -28,15 +28,17 @@ Trocar o preço fixo por horário por um preço calculado por um modelo de previ
 | 5.7 | Documentação: fluxo de dados, modelo, matriz de aderência, roteiro | Pasta `docs/` do repositório |
 | 5.8 | Tarifa por tempo de uso e por potência do modo, com ociosidade e teto por kWh *(ideia do próprio grupo, não pedida pelo playbook nem pela proposta original)* | Valor da sessão detalhado (energia/tempo/ociosidade) no comprovante; `docs/TARIFA_TEMPO_E_OCIOSIDADE.md` |
 | 5.9 | Pontuação de fidelidade do motorista (consumo + regularidade semanal), só visual *(idem, ideia do grupo)* | Cartão de pontos e faixa no Perfil do app; `docs/PONTUACAO_FIDELIDADE.md` |
+| 5.10 | Energy Autopilot: agendamento de recarga por horário de saída, olhando preço e solar previstos *(ideia do grupo — o pilar "controle de demanda" do playbook, levado a serio)* | Plano por blocos de 15 min com meta garantida/pico evitado; `GET /sessions/{id}/schedule`; `docs/ENERGY_AUTOPILOT.md` |
+| 5.11 | Correção das descrições dos modos de recarga (Econômico/Sustentável/Garantido passam a fazer de verdade o que já prometiam) | Mesmo texto da tela, agora comportamento real por trás |
 
 ## Estado
 
-Os itens 5.1 a 5.9 estão **implementados e testados** (testes automáticos do backend e do frontend, e uma recarga completa verificada de ponta a ponta contra o Supabase). Falta publicar (Vercel e Render).
+Os itens 5.1 a 5.11 estão **implementados e testados** (testes automáticos do backend e do frontend, e uma recarga completa verificada de ponta a ponta contra o Supabase). Falta publicar (Vercel e Render).
 
-Os itens 5.8 e 5.9 foram adicionados **depois** da aprovação inicial da Etapa 5: não vêm do playbook da
+Os itens 5.8 a 5.11 foram adicionados **depois** da aprovação inicial da Etapa 5: não vêm do playbook da
 GoodWe nem da proposta original, são ideias comerciais do próprio grupo para reforçar a camada de
-tarifação e retenção de cliente. Por isso ficam destacados aqui, para o Scrum Master decidir se entram
-no escopo da banca.
+tarifação, retenção de cliente e controle de demanda. Por isso ficam destacados aqui, para o Scrum
+Master decidir se entram no escopo da banca.
 
 ## Riscos e controles
 
@@ -47,11 +49,14 @@ no escopo da banca.
 | Suposições de cenário parecerem dados reais | 200 kW contratados, 120 kW de prédio e ocupação de 0,80 são declarados como suposição e ajustáveis por variável de ambiente |
 | Mapa de registradores MODBUS e ficha do carregador desconhecidos | Marcados como "assumidos" até haver o manual do equipamento da FIAP |
 | Dependência de credenciais da GoodWe | Segue como na proposta: adaptador simulado com a mesma interface; troca quando o acesso for liberado |
+| Energy Autopilot parecer usar a mensagem OCPP de agendamento (`SetChargingProfile`) | Não usa: o backend controla o carregador virtual diretamente. Documentado como próximo passo em `docs/ENERGY_AUTOPILOT.md` |
+| "Economia" do Energy Autopilot parecer desconto no preço por kWh | O preço por kWh é travado no início e não muda; a economia vem só da ociosidade evitada (real) — detalhado em `docs/ENERGY_AUTOPILOT.md` |
 
 ## Decisão solicitada ao Scrum Master
 
 1. Aprovar a Etapa 5 como parte do escopo da próxima banca.
 2. Confirmar que **carregador e medidor virtuais**, declarados como simulados, atendem ao pilar "protocolos abertos" enquanto não houver equipamento físico.
 3. Indicar o responsável pelo contato com FIAP/GoodWe para as validações da Etapa 0 (credenciais, ficha técnica do carregador, mapa de registradores do medidor).
-4. Aprovar (ou não) os itens 5.8 e 5.9 (tarifa por tempo/potência e pontuação de fidelidade) como parte
-   do escopo apresentado à banca, já que são ideias do grupo e não pedidos externos.
+4. Aprovar (ou não) os itens 5.8 a 5.11 (tarifa por tempo/potência, pontuação de fidelidade e o
+   Energy Autopilot) como parte do escopo apresentado à banca, já que são ideias do grupo e não
+   pedidos externos.

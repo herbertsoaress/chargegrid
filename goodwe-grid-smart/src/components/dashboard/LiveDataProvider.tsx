@@ -3,7 +3,7 @@ import { toast } from "sonner";
 import { backend as api, ApiError } from "@/lib/backend/client";
 import { backendEnabled } from "@/lib/backend/config";
 import { apiForecastToView, apiSessionToCompleted, formatBrl, priceNote, toApiMode } from "@/lib/backend/mappers";
-import type { ApiAssistantAnswer, ApiBillingSummary, ApiChatTurn, ApiLoyalty, ApiRole, ApiToken, ApiVehicle } from "@/lib/backend/types";
+import type { ApiAssistantAnswer, ApiBillingSummary, ApiChatTurn, ApiLoyalty, ApiRole, ApiSchedule, ApiToken, ApiVehicle } from "@/lib/backend/types";
 import { EV_CAPACITY_KW, localForecast, type ForecastView } from "@/lib/pricing";
 
 // A cada quantos ms o "controlador simulado" reporta MeterValues ao backend.
@@ -56,6 +56,8 @@ export interface LiveCharger {
   liveCost?: number;
   /** Minutos parado com a bateria cheia (ociosidade), so no modo OCPP. */
   liveIdleMin?: number;
+  /** Plano do Energy Autopilot (extensao aprovada), so para sessoes com horario de saida no modo OCPP. */
+  schedule?: ApiSchedule;
 }
 
 export interface ActiveSession {
@@ -408,6 +410,8 @@ function LiveDataRoot({ children }: { children: ReactNode }) {
           const s = await api.getSession(token, sessionId);
           if (!backendDriven.current.has(chargerId)) continue; // encerrada enquanto esperavamos
           const kwhLeft = ((100 - s.current_pct) / 100) * 60; // bateria de 60 kWh (a mesma do simulador)
+          // Energy Autopilot (extensao aprovada): so ha plano para modos com horario de saida.
+          const schedule = s.mode !== "rapido" ? await api.schedule(token, sessionId).catch(() => undefined) : undefined;
           setChargers((prev) =>
             prev.map((c) =>
               c.id !== chargerId
@@ -421,6 +425,7 @@ function LiveDataRoot({ children }: { children: ReactNode }) {
                     etaMin: s.current_power_kw > 0 ? Math.round((kwhLeft / s.current_power_kw) * 60) : 0,
                     liveCost: s.amount_estimate,
                     liveIdleMin: s.minutes_idle,
+                    schedule: schedule ?? c.schedule,
                   },
             ),
           );

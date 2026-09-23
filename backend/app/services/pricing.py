@@ -26,7 +26,7 @@ from datetime import datetime
 
 from app.config import settings
 from app.models import ChargingSession, SessionMode
-from app.services import forecast
+from app.services import forecast, scheduler
 from app.services.simulator import nominal_power_kw, simulated_energy_kwh
 from app.timeutil import local_datetime, utcnow
 
@@ -129,10 +129,17 @@ class PriceBreakdown:
     total: float
 
 
-def charging_minutes(energy_kwh: float, session: ChargingSession) -> float:
-    """Minutos "de recarga" a partir da energia entregue e da potencia nominal do modo -- a MESMA
-    conta que a tela do app usa para estimar o tempo antes de iniciar. Nao e o relogio de parede
-    (que pode estar acelerado pela simulacao: SIM_TIME_SCALE, OCPP_SIMULATOR_SPEEDUP)."""
+def charging_minutes(energy_kwh: float, session: ChargingSession, now: datetime | None = None) -> float:
+    """Minutos "de recarga". Para sessoes com plano do Energy Autopilot (modo com horario de saida
+    informado -- ver services/scheduler.py), a potencia varia ao longo da sessao, entao o tempo vem
+    do RELOGIO DO PLANO decorrido desde que a energia foi liberada (que acompanha
+    OCPP_SIMULATOR_SPEEDUP, como o proprio plano). Para as demais (ex.: Rapido, sem agenda),
+    continua sendo energia entregue / potencia nominal do modo -- a MESMA conta que a tela do app
+    usa para estimar o tempo antes de iniciar."""
+    if session.mode != SessionMode.rapido and session.departure_time and session.charging_started_at:
+        end_real = session.ended_at or now or utcnow()
+        elapsed = scheduler.virtual_now(session, end_real) - session.charging_started_at
+        return round(max(0.0, elapsed.total_seconds()) / 60, 2)
     power = max(0.1, nominal_power_kw(session))
     return round(energy_kwh / power * 60, 2)
 
@@ -155,7 +162,7 @@ def breakdown(session: ChargingSession, now: datetime | None = None) -> PriceBre
     energy_price = round(session.price_per_kwh_snapshot + session.mode_surcharge_snapshot, 4)
     energy_amount = round(energy_kwh * energy_price, 2)
 
-    minutes_ch = charging_minutes(energy_kwh, session)
+    minutes_ch = charging_minutes(energy_kwh, session, now)
     time_amt = round(minutes_ch * session.time_rate_snapshot, 2)
 
     minutes_id = idle_minutes(session, now)

@@ -35,6 +35,8 @@ from app.schemas import (
     PaymentOut,
     PayRequest,
     ReceiptOut,
+    ScheduleBlockOut,
+    ScheduleOut,
     SessionCreateRequest,
     SessionEventOut,
     SessionOut,
@@ -42,7 +44,7 @@ from app.schemas import (
 from app.security import get_current_user
 from app.services import session_fsm, session_ops
 from app.services.session_ops import SessionOpError
-from app.services import forecast, payments, pricing
+from app.services import forecast, payments, pricing, scheduler
 from app.services.simulator import (
     DEFAULT_START_PCT,
     nominal_power_kw,
@@ -330,6 +332,33 @@ def stop_session(session_id: int, db: DbSession = Depends(get_db), user: User = 
     db.commit()
     db.refresh(session)
     return session
+
+
+@router.get("/{session_id}/schedule", response_model=ScheduleOut)
+def get_schedule(session_id: int, db: DbSession = Depends(get_db), user: User = Depends(get_current_user)):
+    """Plano do Energy Autopilot (extensao aprovada): potencia planejada por bloco de 15 min ate
+    o horario de saida, com preco/solar previstos e o resumo (meta garantida, pico evitado etc.)."""
+    session = _get_session_for(db, session_id, user)
+    plan = scheduler.build_plan(session, db)
+    if plan is None:
+        return ScheduleOut(has_plan=False)
+    return ScheduleOut(
+        has_plan=True,
+        departure=plan.departure,
+        energy_needed_kwh=plan.energy_needed_kwh,
+        max_power_kw=plan.max_power_kw,
+        on_track=plan.on_track,
+        peak_avoided=plan.peak_avoided,
+        solar_kwh=plan.solar_kwh,
+        idle_savings_rs=plan.idle_savings_rs,
+        blocks=[
+            ScheduleBlockOut(
+                start=b.start, hour=b.hour, occupancy=b.occupancy, solar_kw=b.solar_kw,
+                saturated=b.saturated, charging=b.charging, reason=b.reason,
+            )
+            for b in plan.blocks
+        ],
+    )
 
 
 @router.get("/{session_id}/receipt", response_model=ReceiptOut)

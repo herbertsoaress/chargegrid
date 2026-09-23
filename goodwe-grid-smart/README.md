@@ -78,7 +78,10 @@ progresso) → Histórico → Perfil (veículos) → Preços`
   `../docs/TARIFA_TEMPO_E_OCIOSIDADE.md`).
 - **MobileCharging** — sessão em andamento: anel de progresso SVG, potência atual, kWh entregues, tempo
   decorrido, custo estimado (com backend, inclui tempo e ociosidade) e botão de finalizar. Avisa quando
-  a bateria enche e o carro fica parado no carregador além da tolerância.
+  a bateria enche e o carro fica parado no carregador além da tolerância. Com horário de saída
+  informado (modo diferente de Rápido), mostra o cartão do **Energy Autopilot** (`MobileSchedule`):
+  potência planejada por bloco de 15 min e os selos (meta garantida, pico evitado, solar, ociosidade
+  evitada) — extensão aprovada, ver `../docs/ENERGY_AUTOPILOT.md`.
 - **MobileHistory** — sessões concluídas (as gerada nesta sessão do navegador + um histórico fixo de
   exemplo), com total de kWh e custo do mês.
 - **MobileLogin** — login e cadastro de motorista (o cadastro nunca cria operador); "Entrar como

@@ -19,9 +19,9 @@ Se você só quer começar, leia as seções 1, 2 e 3.
 
 > Outros documentos: a pasta `docs/` tem o fluxo de dados (`FLUXO_DE_DADOS.md`), o modelo de previsão
 > (`MODELO_PREVISAO.md`), a tarifa por tempo/potência/ociosidade (`TARIFA_TEMPO_E_OCIOSIDADE.md`), a
-> pontuação de fidelidade (`PONTUACAO_FIDELIDADE.md`), a matriz "o que a GoodWe pede × o que temos"
-> (`MATRIZ_PLAYBOOK.md`), o roteiro da apresentação (`ROTEIRO_PITCH.md`) e o texto da Etapa 5
-> (`ETAPA_5_PROPOSTA.md`).
+> pontuação de fidelidade (`PONTUACAO_FIDELIDADE.md`), o agendamento por horário de saída
+> (`ENERGY_AUTOPILOT.md`), a matriz "o que a GoodWe pede × o que temos" (`MATRIZ_PLAYBOOK.md`), o
+> roteiro da apresentação (`ROTEIRO_PITCH.md`) e o texto da Etapa 5 (`ETAPA_5_PROPOSTA.md`).
 
 | Pasta | O que é | Precisa de banco? |
 |---|---|---|
@@ -77,6 +77,7 @@ copy .env.example .env      # Windows (Linux/Mac: cp .env.example .env)
 | `MODE_SURCHARGE_ECONOMICO` / `_SUSTENTAVEL` / `_GARANTIDO` / `_RAPIDO` | Acréscimo no preço do kWh por modo (potência maior = mais caro). Padrão 0,00 / 0,05 / 0,10 / 0,15. | Para reequilibrar o preço entre os modos |
 | `IDLE_RATE_PER_MINUTE` / `IDLE_GRACE_MINUTES` | Taxa por minuto parado com a bateria cheia (padrão 0,10) e minutos de tolerância antes de cobrar (padrão 10). | raramente |
 | `PRICE_CAP_PER_KWH` | Teto do preço médio por kWh entregue, somando energia + tempo + ociosidade (padrão 2,20). | raramente |
+| `SOLAR_CAPACITY_KW` | Pico da usina solar simulada do local ao meio-dia (padrão 18). Usada pelo Balanceamento e pelo Energy Autopilot — ver `docs/ENERGY_AUTOPILOT.md`. | raramente |
 | `OCPP_ENABLED` | Liga o servidor OCPP (`ws://…/ocpp/{código do carregador}`). | `true` (padrão) |
 | `OCPP_SHARED_TOKEN` | Se preenchido, o carregador precisa enviar essa senha (HTTP Basic). Vazio = aberto. | Em produção com carregador físico |
 | `OCPP_SIMULATOR` | Sobe os 8 carregadores virtuais dentro do backend, que se conectam por OCPP de verdade. | `true` para demonstrar; `false` com carregador real |
@@ -161,8 +162,8 @@ Abra `http://localhost:8080`. No topo do Dashboard há um indicador de conexão:
 **Testes:**
 
 ```bash
-cd backend && pip install -r requirements-dev.txt && pytest      # 186 testes (inclui OCPP e MODBUS de verdade, locais; leva ~2-3 min)
-cd goodwe-grid-smart && npm test                                 # 93 testes
+cd backend && pip install -r requirements-dev.txt && pytest      # 201 testes (inclui OCPP e MODBUS de verdade, locais; leva ~2-3 min)
+cd goodwe-grid-smart && npm test                                 # 94 testes
 ```
 
 Os testes do backend rodam em SQLite em memória e **desligam** simuladores, pagamento e IA por conta própria
@@ -331,6 +332,8 @@ provedor real, escreve-se uma classe nova e registra-se em `PROVIDERS`.
 | `app/services/forecast.py` | **Modelo de previsão**: treina com o CSV, prevê ocupação por dia/hora, alerta de saturação, guarda versões em `forecast_models`. |
 | `app/services/pricing.py` | Preço R$/kWh: usa o modelo (`1,10 + 0,90 × ocupação`, com correção pela carga real); curva horária como reserva; curvas P1/P2. Também soma tempo de uso, acréscimo por modo e ociosidade, com teto por kWh (`breakdown()` — ver `docs/TARIFA_TEMPO_E_OCIOSIDADE.md`). |
 | `app/services/loyalty.py` | Pontuação do motorista: pontos por kWh + bônus por bater a meta semanal, com faixas (só visual — ver `docs/PONTUACAO_FIDELIDADE.md`). |
+| `app/services/scheduler.py` | **Energy Autopilot**: agendamento de recarga por horário de saída (blocos de 15 min, preço e solar previstos, `GET /sessions/{id}/schedule` — ver `docs/ENERGY_AUTOPILOT.md`). |
+| `app/services/solar.py` | Curva de geração solar simulada, única fonte para o Balanceamento e o Energy Autopilot. |
 | `app/services/session_ops.py` | Operações da sessão (RFID, cabo, medidor, encerrar) usadas **tanto pelo app (REST) quanto pelo carregador (OCPP)**. |
 | `app/services/payments.py` | Provedor de pagamento trocável (hoje `sandbox`). |
 | `app/services/ocpp_service.py`, `ocpp_csms.py` | Servidor OCPP 1.6J: tratamento de cada mensagem e conexão dos carregadores. |
@@ -357,7 +360,8 @@ provedor real, escreve-se uma classe nova e registra-se em `PROVIDERS`.
 | `components/dashboard/WebDashboard.tsx` | Estrutura do dashboard + indicador de conexão. |
 | `components/dashboard/Dashboard*.tsx` | Painéis: Overview, LoadManagement (com o cartão do medidor `DashboardMeter`), Chargers, Logs (mensagens OCPP reais), Insights (**IA & Previsão**), Simulator, Billing, Users. Faturamento e Usuários & Frotas leem do banco quando online. |
 | `components/dashboard/OperatorLogin.tsx` | Tela de login do console do operador. |
-| `components/mobile/MobileLogin.tsx`, `MobileProfile.tsx`, `MobilePricing.tsx` | Login/cadastro do motorista, perfil (veículos) e tabela de preços do modelo. |
+| `components/mobile/MobileLogin.tsx`, `MobileProfile.tsx`, `MobilePricing.tsx` | Login/cadastro do motorista, perfil (veículos e pontuação) e tabela de preços do modelo. |
+| `components/mobile/MobileSchedule.tsx` | Cartão do plano do Energy Autopilot (potência por bloco, selos) na tela de recarga. |
 | `lib/pricing.ts` | Cópia local do cálculo de preço, para o app funcionar sem servidor. |
 | `components/dashboard/DashboardBackend.tsx` | Painel dentro de "Logs OCPP": saúde do banco/API, GoodWe simulado/real, comprovantes gravados, eventos persistidos, auditoria. |
 | `components/mobile/*` | App do motorista (Splash, Home, Mapa Leaflet, detalhe, configuração, recarga, histórico, perfil, preços). |
@@ -396,6 +400,7 @@ Primeira versão do frontend (rotas `/operador` e `/app`). Não é mais o princi
 | 5. IA e protocolos abertos *(proposta nova, ver `docs/ETAPA_5_PROPOSTA.md`)* | `services/forecast.py`, `ocpp_service.py`, `ocpp_csms.py`, `virtual_charger.py`, `modbus_meter.py`, login em `routers/auth.py` |
 | 5.1 Tarifa por tempo/potência/ociosidade *(extensão aprovada)* | `services/pricing.py:breakdown()`, `docs/TARIFA_TEMPO_E_OCIOSIDADE.md` |
 | 5.2 Pontuação de fidelidade *(extensão aprovada, só visual)* | `services/loyalty.py`, `docs/PONTUACAO_FIDELIDADE.md` |
+| 5.3 Energy Autopilot: agendamento por horário de saída *(extensão aprovada)* | `services/scheduler.py`, `services/solar.py`, `docs/ENERGY_AUTOPILOT.md` |
 | Riscos: segredos só no backend | seção 2; `security.py`; CORS restrito |
 | Riscos: real × simulado × futuro | campo `origem` + selo "Dados simulados" |
 | Riscos: números de série | `mask_serial()` |

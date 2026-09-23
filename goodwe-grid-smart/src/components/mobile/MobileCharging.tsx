@@ -1,6 +1,7 @@
 import { ArrowLeft, Zap, BatteryCharging, Clock, DollarSign, Square } from "lucide-react";
 import { toast } from "sonner";
 import { useLiveData, modeMeta } from "@/components/dashboard/LiveDataProvider";
+import { MobileSchedule } from "./MobileSchedule";
 
 interface Props {
   chargerId: string | null;
@@ -99,6 +100,8 @@ export function MobileCharging({ chargerId, onBack }: Props) {
             <p className="text-lg font-bold text-goodwe-orange tabular-nums">R$ {session.estimatedCost.toFixed(2).replace(".", ",")}</p>
           </div>
         </div>
+
+        {charger.schedule && <MobileSchedule schedule={charger.schedule} />}
 
         {session.idleMin > 0 && (
           <div className="glass-card p-3 border border-goodwe-orange/30 bg-goodwe-orange/5">
