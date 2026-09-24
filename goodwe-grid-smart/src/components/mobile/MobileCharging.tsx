@@ -36,6 +36,11 @@ export function MobileCharging({ chargerId, onBack }: Props) {
   const C = 2 * Math.PI * R;
   const remainingMin = charger.etaMin;
   const eta = new Date(Date.now() + remainingMin * 60_000).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  // Com Energy Autopilot (has_plan), o cartao MobileSchedule ja mostra o horario de saida e se a
+  // meta esta garantida -- essa conta ingenua (kWh que falta / potencia OFERECIDA agora) fica
+  // errada durante os blocos parados do plano e contradiz o selo "Meta garantida". Sem plano
+  // (modo Rapido, potencia sempre constante) ela e exata, entao so aparece nesse caso.
+  const hasPlan = !!charger.schedule?.has_plan;
 
   const finish = () => {
     endSession(session.chargerId);
@@ -56,7 +61,7 @@ export function MobileCharging({ chargerId, onBack }: Props) {
           <p className="text-[10px] text-muted-foreground font-mono">{charger.id} · {session.vehicle}</p>
           {persistedSessionIds[charger.id] && (
             <p className="text-[9px] text-goodwe-green flex items-center gap-1 mt-0.5">
-              <span className="status-dot text-goodwe-green" /> Sessão #{persistedSessionIds[charger.id]} salva no banco
+              <span className="status-dot text-goodwe-green" /> Sessão #{persistedSessionIds[charger.id]} confirmada
             </p>
           )}
         </div>
@@ -116,8 +121,10 @@ export function MobileCharging({ chargerId, onBack }: Props) {
 
         <div className="glass-card p-4">
           <div className="flex items-center justify-between text-[11px] mb-2">
-            <span className="text-muted-foreground">Previsão de conclusão</span>
-            <span className="text-foreground font-semibold tabular-nums">{eta} · saída {session.departureTime}</span>
+            <span className="text-muted-foreground">{hasPlan ? "Progresso da meta" : "Previsão de conclusão"}</span>
+            <span className="text-foreground font-semibold tabular-nums">
+              {hasPlan ? `saída ${session.departureTime}` : `${eta} · saída ${session.departureTime}`}
+            </span>
           </div>
           <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
             <div className="h-full bg-gradient-to-r from-goodwe-blue to-goodwe-green rounded-full transition-all duration-700" style={{ width: `${Math.min(100, session.currentPct)}%` }} />

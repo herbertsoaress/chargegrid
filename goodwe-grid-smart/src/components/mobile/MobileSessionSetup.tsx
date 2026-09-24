@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { ArrowLeft, Clock, BatteryCharging, Check } from "lucide-react";
 import { toast } from "sonner";
 import { useLiveData, ChargeMode, modeMeta } from "@/components/dashboard/LiveDataProvider";
-import { estimateCharge, MODE_POWER_FACTOR } from "@/lib/pricing";
+import { BAND_LABEL, estimateCharge, MODE_POWER_FACTOR } from "@/lib/pricing";
 
 interface Props {
   chargerId: string | null;
@@ -156,7 +156,7 @@ export function MobileSessionSetup({ chargerId, onBack, onStarted }: Props) {
         <div className="glass-card p-3 text-[10px] text-muted-foreground space-y-1">
           <p>
             Tarifa agora: <span className="text-foreground font-semibold">R$ {forecast.now.price.toFixed(2).replace(".", ",")}/kWh</span>
-            {" "}· faixa {forecast.now.band}
+            {" "}· faixa {BAND_LABEL[forecast.now.band]}
             {estimate.energyPricePerKwh !== forecast.now.price && (
               <> · com o modo {modeMeta[mode].label}: <span className="text-foreground font-semibold">R$ {estimate.energyPricePerKwh.toFixed(2).replace(".", ",")}/kWh</span></>
             )}

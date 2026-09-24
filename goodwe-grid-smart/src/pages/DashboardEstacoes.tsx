@@ -169,7 +169,7 @@ export default function DashboardEstacoes() {
                       <td className="py-2 pr-3 text-foreground">{s.user}</td>
                       <td className="py-2 pr-3 text-right text-goodwe-blue font-mono">{s.kwh}</td>
                       <td className="py-2 pr-3 text-right text-muted-foreground font-mono">{s.idle} min</td>
-                      <td className="py-2 text-right text-goodwe-green font-mono">R$ {s.cost.toFixed(2)}</td>
+                      <td className="py-2 text-right text-goodwe-green font-mono">R$ {s.cost.toFixed(2).replace(".", ",")}</td>
                     </tr>
                   ))}
                 </tbody>

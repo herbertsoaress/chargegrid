@@ -38,7 +38,7 @@ export function useAssistantChat(role: "driver" | "operator", greeting?: string)
       [
         ...chargers.map(
           (c) =>
-            `${c.id} ${c.name}: ${c.status}, ${c.currentPower.toFixed(1)}/${c.maxPower} kW, ${Math.round(c.pct)}%, ETA ${c.etaMin} min, R$ ${c.tariff.toFixed(2)}/kWh`,
+            `${c.id} ${c.name}: ${c.status}, ${c.currentPower.toFixed(1)}/${c.maxPower} kW, ${Math.round(c.pct)}%, ETA ${c.etaMin} min, ${brl(c.tariff)}/kWh`,
         ),
         `Rede: ${totals.distributedPower} kW de ${totals.networkLimit} kW (${Math.round(totals.networkLoadPct)}%)`,
       ].join("\n"),

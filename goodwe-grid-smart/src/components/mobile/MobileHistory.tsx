@@ -1,8 +1,9 @@
-import { ArrowLeft, Calendar, Zap, Clock } from "lucide-react";
+import { ArrowLeft, Calendar, Zap, Clock, MapPin, Battery } from "lucide-react";
 import { modeMeta, useLiveData, CompletedSession } from "@/components/dashboard/LiveDataProvider";
 
 interface Props {
   onBack: () => void;
+  onNavigate: (screen: string) => void;
 }
 
 const fixedHistory: Omit<CompletedSession, "chargerId">[] = [
@@ -14,7 +15,7 @@ const fixedHistory: Omit<CompletedSession, "chargerId">[] = [
   { chargerName: "FIAP #7", vehicle: "BYD Dolphin", userName: "Você", priority: "eco",         kwh: 18.8, cost: 35.53, durationMin: 80, completedAt: "03/08/2026, 08:50" },
 ];
 
-export function MobileHistory({ onBack }: Props) {
+export function MobileHistory({ onBack, onNavigate }: Props) {
   const { completedSessions, apiHistory, backend } = useLiveData();
   const online = backend.status === "online";
   // Com o backend online mostramos so historico REAL (gravado no banco); o historico
@@ -28,7 +29,7 @@ export function MobileHistory({ onBack }: Props) {
   const totalCost = allHistory.reduce((s, h) => s + h.cost, 0);
 
   return (
-    <div className="flex flex-col h-full bg-background">
+    <div className="relative flex flex-col h-full bg-background">
       <div className="px-4 pt-4 pb-3 flex items-center gap-3">
         <button onClick={onBack} className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center">
           <ArrowLeft className="w-4 h-4 text-foreground" />
@@ -48,7 +49,7 @@ export function MobileHistory({ onBack }: Props) {
         </div>
       </div>
 
-      <div className="flex-1 px-4 mt-3 overflow-y-auto pb-6 space-y-2.5">
+      <div className="flex-1 px-4 mt-3 overflow-y-auto pb-20 space-y-2.5">
         {online && allHistory.length === 0 && (
           <p className="text-xs text-muted-foreground text-center pt-6">
             Nenhuma sessão gravada ainda. Inicie e finalize uma recarga para ver o comprovante aqui.
@@ -72,7 +73,7 @@ export function MobileHistory({ onBack }: Props) {
               </div>
               {s.sessionId && (
                 <p className="text-[9px] text-muted-foreground/70 font-mono mt-1.5">
-                  Sessão #{s.sessionId} · {s.receipt ? `Comprovante ${s.receipt}` : "salva no banco"}
+                  Sessão #{s.sessionId} · {s.receipt ? `Comprovante ${s.receipt}` : "sem comprovante ainda"}
                 </p>
               )}
               {s.priceNote && <p className="text-[9px] text-muted-foreground/70 mt-0.5">{s.priceNote}</p>}
@@ -92,6 +93,20 @@ export function MobileHistory({ onBack }: Props) {
             </div>
           );
         })}
+      </div>
+
+      {/* navegação inferior */}
+      <div className="absolute bottom-0 left-0 right-0 h-14 bg-goodwe-card/90 backdrop-blur-lg border-t border-white/5 flex items-center justify-around px-4">
+        {[
+          { icon: Zap, label: "Início", active: false, screen: "home" },
+          { icon: MapPin, label: "Mapa", active: false, screen: "map" },
+          { icon: Battery, label: "Histórico", active: true, screen: "history" },
+        ].map((item, i) => (
+          <button key={i} onClick={() => onNavigate(item.screen)} className="flex flex-col items-center gap-0.5">
+            <item.icon className={`w-5 h-5 ${item.active ? "text-primary" : "text-muted-foreground"}`} />
+            <span className={`text-[10px] ${item.active ? "text-primary font-medium" : "text-muted-foreground"}`}>{item.label}</span>
+          </button>
+        ))}
       </div>
     </div>
   );

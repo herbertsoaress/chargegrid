@@ -54,23 +54,41 @@ export function DashboardBackend({ only }: { only: "invoices" | "integration" })
     if (backend.status !== "online" || !token) return;
     let cancelled = false;
     const load = async () => {
-      try {
-        const [health, goodwe, plants, devices, logs, events, invoices] = await Promise.all([
-          api.health(),
-          api.goodweStatus(),
-          api.goodwePlants(token),
-          api.goodweDevices(token),
-          api.integrationLogs(token),
-          api.events(token),
-          api.invoices(token),
-        ]);
-        if (!cancelled) {
-          setData({ health, goodwe, plants, devices, logs, events, invoices });
-          setError(null);
-        }
-      } catch (e) {
-        if (!cancelled) setError(e instanceof Error ? e.message : "erro ao consultar a API");
-      }
+      // Promise.allSettled (nao Promise.all): uma fonte lenta ou fora do ar (ex.: GoodWe
+      // OpenAPI) nao pode apagar as outras -- cada campo mantem o ultimo valor bom que teve.
+      const [health, goodwe, plants, devices, logs, events, invoices] = await Promise.allSettled([
+        api.health(),
+        api.goodweStatus(),
+        api.goodwePlants(token),
+        api.goodweDevices(token),
+        api.integrationLogs(token),
+        api.events(token),
+        api.invoices(token),
+      ]);
+      if (cancelled) return;
+      setData((prev) => ({
+        health: health.status === "fulfilled" ? health.value : prev.health,
+        goodwe: goodwe.status === "fulfilled" ? goodwe.value : prev.goodwe,
+        plants: plants.status === "fulfilled" ? plants.value : prev.plants,
+        devices: devices.status === "fulfilled" ? devices.value : prev.devices,
+        logs: logs.status === "fulfilled" ? logs.value : prev.logs,
+        events: events.status === "fulfilled" ? events.value : prev.events,
+        invoices: invoices.status === "fulfilled" ? invoices.value : prev.invoices,
+      }));
+      const failed = (
+        [
+          ["saúde do banco", health],
+          ["status GoodWe", goodwe],
+          ["usinas GoodWe", plants],
+          ["dispositivos GoodWe", devices],
+          ["logs de integração", logs],
+          ["eventos", events],
+          ["comprovantes", invoices],
+        ] as const
+      )
+        .filter(([, r]) => r.status === "rejected")
+        .map(([label]) => label);
+      setError(failed.length ? `Falha ao atualizar: ${failed.join(", ")}` : null);
     };
     load();
     const timer = setInterval(load, 8000);

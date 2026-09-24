@@ -76,6 +76,14 @@ export const WEEKDAY_NAMES = ["segunda", "terça", "quarta", "quinta", "sexta", 
 
 export type Band = "fora de ponta" | "intermediaria" | "ponta";
 
+// O valor da faixa e a chave interna (sem acento, igual ao que a API devolve); isso e o rotulo
+// certo para mostrar na tela.
+export const BAND_LABEL: Record<Band, string> = {
+  "fora de ponta": "fora de ponta",
+  intermediaria: "intermediária",
+  ponta: "ponta",
+};
+
 export interface ForecastPointView {
   hour: number;
   occupancy: number;

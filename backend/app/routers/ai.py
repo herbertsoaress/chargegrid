@@ -21,9 +21,9 @@ from app.timeutil import local_datetime, utcnow
 router = APIRouter(prefix="/ai", tags=["ai"])
 
 NOTE = (
-    "Modelo estatistico calibrado com historico de recargas (CSV do grupo) e a curva P1 do relatorio de "
-    "Calculo Integral. O nivel de ocupacao (PEAK_OCCUPANCY_REF) e a capacidade para carros sao suposicoes "
-    "de cenario. Nao e IA generativa."
+    "Modelo estatístico calibrado com histórico de recargas (CSV do grupo) e a curva P1 do relatório de "
+    "Cálculo Integral. O nível de ocupação (PEAK_OCCUPANCY_REF) e a capacidade para carros são suposições "
+    "de cenário. Não é IA generativa."
 )
 
 

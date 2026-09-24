@@ -163,7 +163,7 @@ def test_forecast_endpoint_is_public_and_consistent(client):
     assert body["capacity_kw"] == 80 and body["contracted_kw"] == 200 and body["base_load_kw"] == 120
     assert body["price_min"] == 1.10 and body["price_max"] == 2.00
     assert 1.10 <= body["now"]["price_per_kwh"] <= 2.00
-    assert "Nao e IA generativa" in body["note"]
+    assert "Não é IA generativa" in body["note"]
     assert all(p["total_demand_kw"] == pytest.approx(120 + p["ev_load_kw"], abs=0.11) for p in body["points"])
 
 

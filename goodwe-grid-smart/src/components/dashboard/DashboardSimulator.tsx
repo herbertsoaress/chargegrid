@@ -83,7 +83,7 @@ export function DashboardSimulator() {
           <div className="rounded-lg bg-black/30 border border-white/5 p-3">
             <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Retorno do investimento</p>
             <p className="text-lg font-bold text-goodwe-orange tabular-nums">
-              {isFinite(payback) ? `${payback < 1 ? payback.toFixed(1) : Math.ceil(payback)} ${payback < 1 ? "mês" : "meses"}` : "—"}
+              {isFinite(payback) ? `${payback < 1 ? payback.toFixed(1).replace(".", ",") : Math.ceil(payback)} ${payback < 1 ? "mês" : "meses"}` : "—"}
             </p>
           </div>
         </div>

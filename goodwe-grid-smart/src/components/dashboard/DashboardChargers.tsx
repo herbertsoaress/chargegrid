@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Plug, Clock, DollarSign, ChevronDown, ChevronUp } from "lucide-react";
 import { useLiveData, statusMeta, modeMeta, ChargerStatus } from "./LiveDataProvider";
+import { formatBrl } from "@/lib/backend/mappers";
 
 export function DashboardChargers() {
   const { chargers, persistedSessionIds, backend } = useLiveData();
@@ -61,7 +62,7 @@ export function DashboardChargers() {
           const isLive = c.status === "charging" || c.status === "preparing";
           const isOpen = expanded === c.id;
           const sessionKwh = c.sessionKwh ?? 0;
-          const cost = (sessionKwh * c.tariff).toFixed(2);
+          const cost = formatBrl(sessionKwh * c.tariff);
 
           return (
             <div key={c.id} className={`glass-card card-hover p-4 ${isLive ? "border-goodwe-blue/30" : c.status === "faulted" ? "border-primary/30" : ""}`}>
@@ -87,7 +88,7 @@ export function DashboardChargers() {
                 </div>
                 <div className="rounded-lg bg-black/30 border border-white/5 p-2">
                   <p className="text-[9px] text-muted-foreground uppercase tracking-wider flex items-center gap-1"><DollarSign className="w-2.5 h-2.5" /> Tarifa</p>
-                  <p className="text-base font-bold text-goodwe-orange tabular-nums">R$ {c.tariff.toFixed(2)}<span className="text-[10px] text-muted-foreground">/kWh</span></p>
+                  <p className="text-base font-bold text-goodwe-orange tabular-nums">{formatBrl(c.tariff)}<span className="text-[10px] text-muted-foreground">/kWh</span></p>
                 </div>
               </div>
 
@@ -143,11 +144,11 @@ export function DashboardChargers() {
                 <div className="mt-2 pt-2 border-t border-white/5 grid grid-cols-3 gap-2">
                   <div className="rounded-md bg-black/30 border border-white/5 p-2 text-center">
                     <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Tarifa</p>
-                    <p className="text-xs font-bold text-goodwe-orange tabular-nums">R$ {c.tariff.toFixed(2)}/kWh</p>
+                    <p className="text-xs font-bold text-goodwe-orange tabular-nums">{formatBrl(c.tariff)}/kWh</p>
                   </div>
                   <div className="rounded-md bg-black/30 border border-white/5 p-2 text-center">
                     <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Custo sess.</p>
-                    <p className="text-xs font-bold text-goodwe-green tabular-nums">R$ {cost}</p>
+                    <p className="text-xs font-bold text-goodwe-green tabular-nums">{cost}</p>
                   </div>
                   <div className="rounded-md bg-black/30 border border-white/5 p-2 text-center">
                     <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Pot. máx.</p>

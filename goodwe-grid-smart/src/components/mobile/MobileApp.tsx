@@ -46,7 +46,7 @@ function MobileAppInner() {
       case "charging":
         return <MobileCharging chargerId={selectedChargerId} onBack={() => setScreen("home")} />;
       case "history":
-        return <MobileHistory onBack={() => setScreen("home")} />;
+        return <MobileHistory onBack={() => setScreen("home")} onNavigate={setScreen} />;
       case "pricing":
         return <MobilePricing onBack={() => setScreen("home")} />;
       case "profile":
