@@ -1,4 +1,5 @@
-import { Zap, Users, DollarSign, Activity, TrendingUp, TrendingDown, Gauge, Timer } from "lucide-react";
+import { useState } from "react";
+import { Zap, Users, DollarSign, Activity, TrendingUp, TrendingDown, Gauge, Timer, ChevronDown, ChevronUp } from "lucide-react";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, ReferenceLine } from "recharts";
 import { useLiveData, statusMeta, modeMeta } from "./LiveDataProvider";
 
@@ -18,6 +19,7 @@ const weeklyRevenue = [
 
 export function DashboardOverview() {
   const { totals, chargers, load } = useLiveData();
+  const [showExamples, setShowExamples] = useState(false);
   const availableCount = chargers.filter((c) => c.status === "available").length;
   const pct = totals.networkLoadPct;
   const barColor = pct > 90 ? "bg-primary" : pct >= 70 ? "bg-goodwe-orange" : "bg-goodwe-green";
@@ -96,46 +98,57 @@ export function DashboardOverview() {
         </ResponsiveContainer>
       </div>
 
-      {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div className="glass-card card-hover p-4">
-          <h3 className="text-sm font-semibold text-foreground mb-4">Demanda de Potência (kW) <span className="ml-1 text-[10px] font-normal text-muted-foreground">exemplo ilustrativo</span></h3>
-          <ResponsiveContainer width="100%" height={220}>
-            <AreaChart data={hourlyData}>
-              <defs>
-                <linearGradient id="colorKw" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#00AEEF" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="#00AEEF" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-              <XAxis dataKey="hour" tick={{ fontSize: 10, fill: '#999' }} />
-              <YAxis tick={{ fontSize: 10, fill: '#999' }} />
-              <Tooltip
-                contentStyle={{ background: '#1F1F1F', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, fontSize: 12 }}
-                labelStyle={{ color: '#fff' }}
-              />
-              <Area type="monotone" dataKey="kw" stroke="#00AEEF" fill="url(#colorKw)" strokeWidth={2} />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
+      {/* Projeções ilustrativas: nao sao dados reais, entao ficam fora da visao principal por padrao
+          -- menos coisa pra olhar de cara, sem esconder nada que seja de verdade. */}
+      <button
+        onClick={() => setShowExamples((v) => !v)}
+        className="w-full flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground hover:text-foreground transition py-1"
+      >
+        {showExamples ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+        {showExamples ? "Ocultar projeções ilustrativas" : "Ver projeções ilustrativas (exemplo, não são dados reais)"}
+      </button>
 
-        <div className="glass-card card-hover p-4">
-          <h3 className="text-sm font-semibold text-foreground mb-4">Receita Semanal (R$) <span className="ml-1 text-[10px] font-normal text-muted-foreground">exemplo ilustrativo</span></h3>
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={weeklyRevenue}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-              <XAxis dataKey="day" tick={{ fontSize: 10, fill: '#999' }} />
-              <YAxis tick={{ fontSize: 10, fill: '#999' }} />
-              <Tooltip
-                contentStyle={{ background: '#1F1F1F', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, fontSize: 12 }}
-                labelStyle={{ color: '#fff' }}
-              />
-              <Bar dataKey="value" fill="#E60012" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
+      {showExamples && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div className="glass-card card-hover p-4">
+            <h3 className="text-sm font-semibold text-foreground mb-4">Demanda de Potência (kW) <span className="ml-1 text-[10px] font-normal text-muted-foreground">exemplo ilustrativo</span></h3>
+            <ResponsiveContainer width="100%" height={220}>
+              <AreaChart data={hourlyData}>
+                <defs>
+                  <linearGradient id="colorKw" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#00AEEF" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#00AEEF" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+                <XAxis dataKey="hour" tick={{ fontSize: 10, fill: '#999' }} />
+                <YAxis tick={{ fontSize: 10, fill: '#999' }} />
+                <Tooltip
+                  contentStyle={{ background: '#1F1F1F', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, fontSize: 12 }}
+                  labelStyle={{ color: '#fff' }}
+                />
+                <Area type="monotone" dataKey="kw" stroke="#00AEEF" fill="url(#colorKw)" strokeWidth={2} />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+
+          <div className="glass-card card-hover p-4">
+            <h3 className="text-sm font-semibold text-foreground mb-4">Receita Semanal (R$) <span className="ml-1 text-[10px] font-normal text-muted-foreground">exemplo ilustrativo</span></h3>
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={weeklyRevenue}>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+                <XAxis dataKey="day" tick={{ fontSize: 10, fill: '#999' }} />
+                <YAxis tick={{ fontSize: 10, fill: '#999' }} />
+                <Tooltip
+                  contentStyle={{ background: '#1F1F1F', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, fontSize: 12 }}
+                  labelStyle={{ color: '#fff' }}
+                />
+                <Bar dataKey="value" fill="#E60012" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Recent sessions */}
       <div className="glass-card card-hover p-4">
